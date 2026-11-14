@@ -295,3 +295,143 @@ create policy "Users can add own game activity" on public.game_activity
 drop policy if exists "Admins can read all game activity" on public.game_activity;
 create policy "Admins can read all game activity" on public.game_activity
   for select to authenticated using ((select public.is_admin()));
+
+
+-- Rewardly-Erweiterungen: Login-Bonus-Punkte, Empfehlungen, Rangliste und Benachrichtigungen.
+alter table public.profiles add column if not exists referral_code text unique;
+update public.profiles set referral_code = upper(substr(replace(id::text,'-',''),1,8)) where referral_code is null;
+
+create table if not exists public.reward_points (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  points integer not null default 0 check (points >= 0),
+  updated_at timestamptz not null default now()
+);
+create table if not exists public.daily_bonus_claims (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  claim_date date not null default (now() at time zone 'utc')::date,
+  points integer not null default 10,
+  streak integer not null default 1,
+  created_at timestamptz not null default now(),
+  unique(user_id,claim_date)
+);
+create table if not exists public.referrals (
+  id bigint generated always as identity primary key,
+  referrer_id uuid not null references auth.users(id) on delete cascade,
+  referred_id uuid not null unique references auth.users(id) on delete cascade,
+  referral_code text not null,
+  status text not null default 'registered' check (status in ('registered','qualified','rejected')),
+  created_at timestamptz not null default now(),
+  check (referrer_id <> referred_id)
+);
+create table if not exists public.notifications (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  message text not null,
+  is_read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+alter table public.reward_points enable row level security;
+alter table public.daily_bonus_claims enable row level security;
+alter table public.referrals enable row level security;
+alter table public.notifications enable row level security;
+
+drop policy if exists "Users read own points" on public.reward_points;
+create policy "Users read own points" on public.reward_points for select to authenticated using(user_id=auth.uid());
+drop policy if exists "Users read own bonus claims" on public.daily_bonus_claims;
+create policy "Users read own bonus claims" on public.daily_bonus_claims for select to authenticated using(user_id=auth.uid());
+drop policy if exists "Users read own referrals" on public.referrals;
+create policy "Users read own referrals" on public.referrals for select to authenticated using(referrer_id=auth.uid() or referred_id=auth.uid());
+drop policy if exists "Users read own notifications" on public.notifications;
+create policy "Users read own notifications" on public.notifications for select to authenticated using(user_id=auth.uid());
+drop policy if exists "Users mark own notifications read" on public.notifications;
+create policy "Users mark own notifications read" on public.notifications for update to authenticated using(user_id=auth.uid()) with check(user_id=auth.uid());
+
+create or replace function public.claim_daily_bonus()
+returns table(points_awarded integer, current_points integer, current_streak integer)
+language plpgsql security definer set search_path=''
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_today date := (now() at time zone 'utc')::date;
+  v_streak integer := 1;
+  v_points integer := 10;
+  v_total integer;
+begin
+  if v_user is null or not public.is_active_user() then raise exception 'Bitte anmelden. Gesperrte Konten sind ausgeschlossen.'; end if;
+  if exists(select 1 from public.daily_bonus_claims where user_id=v_user and claim_date=v_today) then
+    raise exception 'Der Tagesbonus wurde heute bereits abgeholt.';
+  end if;
+  select coalesce(streak,0)+1 into v_streak from public.daily_bonus_claims
+   where user_id=v_user and claim_date=v_today-1;
+  v_streak := coalesce(v_streak,1);
+  if v_streak >= 7 then v_points := 25; end if;
+  insert into public.daily_bonus_claims(user_id,claim_date,points,streak) values(v_user,v_today,v_points,v_streak);
+  insert into public.reward_points(user_id,points) values(v_user,v_points)
+    on conflict(user_id) do update set points=public.reward_points.points+excluded.points,updated_at=now();
+  select points into v_total from public.reward_points where user_id=v_user;
+  return query select v_points,v_total,v_streak;
+end $$;
+revoke all on function public.claim_daily_bonus() from public;
+grant execute on function public.claim_daily_bonus() to authenticated;
+
+create or replace function public.apply_referral_code(p_code text)
+returns void language plpgsql security definer set search_path=''
+as $$
+declare v_referrer uuid;
+begin
+  if auth.uid() is null or not public.is_active_user() then raise exception 'Bitte anmelden.'; end if;
+  if exists(select 1 from public.referrals where referred_id=auth.uid()) then raise exception 'Ein Einladungscode wurde bereits verwendet.'; end if;
+  select id into v_referrer from public.profiles where upper(referral_code)=upper(trim(p_code));
+  if v_referrer is null then raise exception 'Einladungscode nicht gefunden.'; end if;
+  if v_referrer=auth.uid() then raise exception 'Du kannst deinen eigenen Code nicht verwenden.'; end if;
+  insert into public.referrals(referrer_id,referred_id,referral_code) values(v_referrer,auth.uid(),upper(trim(p_code)));
+end $$;
+revoke all on function public.apply_referral_code(text) from public;
+grant execute on function public.apply_referral_code(text) to authenticated;
+
+create or replace function public.public_reward_leaderboard()
+returns table(username text,total_cents bigint)
+language sql stable security definer set search_path=''
+as $$
+ select coalesce(p.username,'Rewardly-Nutzer'),coalesce(sum(l.amount_cents),0)::bigint
+ from public.profiles p
+ join public.reward_ledger l on l.user_id=p.id
+ where p.is_banned=false
+ group by p.id,p.username
+ order by sum(l.amount_cents) desc
+ limit 10
+$$;
+revoke all on function public.public_reward_leaderboard() from public;
+grant execute on function public.public_reward_leaderboard() to anon,authenticated;
+
+create or replace function public.notify_ticket_reply()
+returns trigger language plpgsql security definer set search_path=''
+as $$
+declare v_owner uuid;
+begin
+  select user_id into v_owner from public.tickets where id=new.ticket_id;
+  if v_owner is not null and new.user_id<>v_owner then
+    insert into public.notifications(user_id,title,message)
+    values(v_owner,'Neue Support-Antwort','Dein Support-Ticket hat eine neue Antwort erhalten.');
+  end if;
+  return new;
+end $$;
+drop trigger if exists ticket_reply_notification on public.ticket_messages;
+create trigger ticket_reply_notification after insert on public.ticket_messages
+for each row execute function public.notify_ticket_reply();
+
+create or replace function public.notify_payout_change()
+returns trigger language plpgsql security definer set search_path=''
+as $$
+begin
+ if new.status is distinct from old.status then
+   insert into public.notifications(user_id,title,message)
+   values(new.user_id,'Auszahlungsstatus aktualisiert','Dein Auszahlungsantrag hat jetzt den Status: '||new.status||'.');
+ end if;
+ return new;
+end $$;
+drop trigger if exists payout_status_notification on public.payout_requests;
+create trigger payout_status_notification after update on public.payout_requests
+for each row execute function public.notify_payout_change();
