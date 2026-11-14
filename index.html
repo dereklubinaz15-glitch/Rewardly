@@ -13,7 +13,7 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
 </style>
 </head>
 <body>
-<header class="wrap"><a class="brand" href="#">Reward<span>ly</span></a><nav><a href="#start">Startseite</a><a href="#spiele">Spiele</a><a href="#konto">Mein Konto</a><a href="#guthaben">Guthaben</a><a href="#auszahlung">Auszahlung</a><a href="#support">Meine Tickets</a></nav><a class="btn" href="#konto">Anmelden / Registrieren</a></header>
+<header class="wrap"><a class="brand" href="#">Reward<span>ly</span></a><nav><a href="#start">Startseite</a><a href="#spiele">Spiele</a><a href="#konto">Mein Konto</a><a href="#guthaben">Guthaben</a><a href="#auszahlung">Auszahlung</a><a href="#support">Meine Tickets</a><a href="#admin" id="admin-nav" style="display:none">Admin</a></nav><a class="btn" href="#konto">Anmelden / Registrieren</a></header>
 <main class="wrap">
 
 <section class="section" id="konto" style="padding-top:20px">
@@ -105,6 +105,16 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
 <p class="small">Wichtig: Anträge werden erst nach Prüfung bezahlt. Zahlungsanbieter können Identitätsprüfungen verlangen. Rewardly kann diese nicht umgehen.</p>
 <div style="margin-top:22px"><b>Meine Auszahlungsanträge</b><div id="payout-list" class="small" style="display:grid;gap:8px;margin-top:10px">Bitte anmelden, um deine Anträge zu sehen.</div></div>
 </div></section>
+<section class="section" id="admin" style="display:none">
+  <div class="eyebrow">Nur für Administratoren</div><h2>Rewardly-Verwaltung</h2>
+  <p class="muted">Hier kannst du Nutzer, Support-Tickets und Auszahlungsanträge einsehen und bearbeiten.</p>
+  <div id="admin-status" class="notice" style="display:none"></div>
+  <div class="features" style="margin-top:18px">
+    <div class="feature"><b>Nutzer</b><div id="admin-users" class="small">Wird geladen ...</div></div>
+    <div class="feature"><b>Support-Tickets</b><div id="admin-tickets" class="small">Wird geladen ...</div></div>
+    <div class="feature"><b>Auszahlungen</b><div id="admin-payouts" class="small">Wird geladen ...</div></div>
+  </div>
+</section>
 </main>
 <footer class="wrap"><span>© 2026 Rewardly · Projektvorschau</span><span>Datenschutz und Impressum müssen vor dem öffentlichen Betrieb ergänzt werden.</span></footer>
 
@@ -346,9 +356,78 @@ payoutForm.addEventListener('submit',async event=>{
   await loadPayouts();
 });
 
-supabase.auth.onAuthStateChange(() => { refreshAccount(); loadTickets(); loadPayouts(); });
+
+const adminSectionEl = document.getElementById('admin');
+const adminNav = document.getElementById('admin-nav');
+const adminStatus = document.getElementById('admin-status');
+const adminUsers = document.getElementById('admin-users');
+const adminTickets = document.getElementById('admin-tickets');
+const adminPayouts = document.getElementById('admin-payouts');
+function adminMessage(message, isError=false) {
+  adminStatus.textContent = message;
+  adminStatus.style.display = 'block';
+  adminStatus.style.borderColor = isError ? '#a94b55' : '#647b45';
+}
+function makeAdminButton(label, onClick) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'btn'; b.style.cssText = 'padding:7px 10px;font-size:12px;margin:5px 5px 0 0';
+  b.textContent = label; b.addEventListener('click', onClick); return b;
+}
+async function loadAdmin() {
+  const {data:{user}} = await supabase.auth.getUser();
+  if (!user) { adminSectionEl.style.display='none'; adminNav.style.display='none'; return; }
+  const {data: profile, error: profileError} = await supabase.from('profiles').select('role').eq('id',user.id).maybeSingle();
+  if (profileError || profile?.role !== 'admin') {
+    adminSectionEl.style.display='none'; adminNav.style.display='none'; return;
+  }
+  adminSectionEl.style.display='block'; adminNav.style.display='inline';
+  adminUsers.textContent='Lade Nutzer ...';
+  adminTickets.textContent='Lade Tickets ...';
+  adminPayouts.textContent='Lade Auszahlungen ...';
+  const [usersResult,ticketsResult,payoutsResult] = await Promise.all([
+    supabase.from('profiles').select('id,username,role,created_at').order('created_at',{ascending:false}).limit(100),
+    supabase.from('tickets').select('id,user_id,subject,message,status,created_at').order('created_at',{ascending:false}).limit(100),
+    supabase.from('payout_requests').select('id,user_id,amount_cents,method,status,created_at').order('created_at',{ascending:false}).limit(100)
+  ]);
+  adminUsers.replaceChildren();
+  if (usersResult.error) adminUsers.textContent='Fehler: '+usersResult.error.message;
+  else if (!usersResult.data.length) adminUsers.textContent='Noch keine Nutzer.';
+  else for (const u of usersResult.data) {
+    const item=document.createElement('p');
+    item.textContent=(u.username||'Ohne Benutzername')+' · '+u.role+' · '+u.id;
+    adminUsers.append(item);
+  }
+  adminTickets.replaceChildren();
+  if (ticketsResult.error) adminTickets.textContent='Fehler: '+ticketsResult.error.message;
+  else if (!ticketsResult.data.length) adminTickets.textContent='Keine Tickets vorhanden.';
+  else for (const t of ticketsResult.data) {
+    const item=document.createElement('div'); item.className='feature'; item.style.marginBottom='10px';
+    const title=document.createElement('b'); title.textContent='#'+t.id+' · '+t.subject;
+    const body=document.createElement('p'); body.className='small'; body.textContent=t.message+' · Nutzer: '+t.user_id;
+    const status=document.createElement('select'); status.style.cssText='padding:8px;border-radius:8px;background:#0e1324;color:white;border:1px solid var(--line)';
+    for(const [value,label] of [['open','Offen'],['in_progress','In Bearbeitung'],['resolved','Gelöst'],['closed','Geschlossen']]) { const o=document.createElement('option');o.value=value;o.textContent=label;o.selected=t.status===value;status.append(o); }
+    const save=makeAdminButton('Status speichern',async()=>{const {error}=await supabase.from('tickets').update({status:status.value}).eq('id',t.id);if(error)adminMessage('Ticket-Änderung fehlgeschlagen: '+error.message,true);else{adminMessage('Ticket #'+t.id+' aktualisiert.');await loadAdmin();}});
+    const reply=document.createElement('textarea');reply.rows=2;reply.maxLength=5000;reply.placeholder='Antwort an Nutzer ...';reply.style.cssText='display:block;width:100%;margin-top:8px;padding:9px;border-radius:8px;background:#0e1324;color:white;border:1px solid var(--line)';
+    const send=makeAdminButton('Antwort senden',async()=>{if(!reply.value.trim())return adminMessage('Bitte eine Antwort eingeben.',true);const {data:{user:adminUser}}=await supabase.auth.getUser();const {error}=await supabase.from('ticket_messages').insert({ticket_id:t.id,user_id:adminUser.id,message:reply.value.trim()});if(error)adminMessage('Antwort fehlgeschlagen: '+error.message,true);else{reply.value='';adminMessage('Antwort für Ticket #'+t.id+' gespeichert.');}});
+    item.append(title,body,status,save,reply,send);adminTickets.append(item);
+  }
+  adminPayouts.replaceChildren();
+  if (payoutsResult.error) adminPayouts.textContent='Fehler: '+payoutsResult.error.message;
+  else if (!payoutsResult.data.length) adminPayouts.textContent='Keine Auszahlungsanträge vorhanden.';
+  else for (const p of payoutsResult.data) {
+    const item=document.createElement('div');item.className='feature';item.style.marginBottom='10px';
+    const detail=document.createElement('p');detail.className='small';detail.textContent=euro(p.amount_cents)+' · '+p.method+' · '+p.status+' · Nutzer: '+p.user_id;
+    const status=document.createElement('select');status.style.cssText='padding:8px;border-radius:8px;background:#0e1324;color:white;border:1px solid var(--line)';
+    for(const [value,label] of [['pending','Ausstehend'],['processing','In Prüfung'],['completed','Abgeschlossen'],['rejected','Abgelehnt']]){const o=document.createElement('option');o.value=value;o.textContent=label;o.selected=p.status===value;status.append(o);}
+    const save=makeAdminButton('Auszahlungsstatus speichern',async()=>{const {error}=await supabase.from('payout_requests').update({status:status.value}).eq('id',p.id);if(error)adminMessage('Auszahlungsänderung fehlgeschlagen: '+error.message,true);else{adminMessage('Auszahlung #'+p.id+' aktualisiert.');await loadAdmin();}});
+    item.append(detail,status,save);adminPayouts.append(item);
+  }
+}
+
+supabase.auth.onAuthStateChange(() => { refreshAccount(); loadTickets(); loadPayouts(); loadAdmin(); });
 refreshAccount();
 loadPayouts();
+loadAdmin();
 </script>
 
 </body></html>
