@@ -44,7 +44,8 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
       <button class="btn" type="button" id="logout-btn" style="background:#29334e;color:white">Abmelden</button>
     </div>
   </div>
-</section>\n<section class="hero"><div><div class="eyebrow">Deine Rewards-Welt</div><h1>Spielen.<br><span style="color:var(--green)">Sammeln.</span><br>Prämien erhalten.</h1><p>Entdecke spannende Spiele und Angebote. Erledige Aufgaben und sammle Punkte für mögliche Prämien.</p><a class="btn" href="#spiele">Jetzt entdecken&nbsp; →</a><p class="small">Kostenlos starten · Keine eigenen Käufe nötig, sofern ein Angebot nichts anderes angibt.</p></div>
+</section>
+<section class="hero"><div><div class="eyebrow">Deine Rewards-Welt</div><h1>Spielen.<br><span style="color:var(--green)">Sammeln.</span><br>Prämien erhalten.</h1><p>Entdecke spannende Spiele und Angebote. Erledige Aufgaben und sammle Punkte für mögliche Prämien.</p><a class="btn" href="#spiele">Jetzt entdecken&nbsp; →</a><p class="small">Kostenlos starten · Keine eigenen Käufe nötig, sofern ein Angebot nichts anderes angibt.</p></div>
 <div class="hero-card"><div class="small">Dein Rewardly-Dashboard · Vorschau</div><div class="small" style="margin-top:18px">Beispiel-Guthaben</div><div class="balance">0,00 €</div><div class="small">Sammle bestätigte Prämien durch teilnehmende Partnerangebote.</div><div class="stats"><div class="stat"><b>14</b><span class="small">Spiele geplant</span></div><div class="stat"><b>5 €</b><span class="small">Auszahlungsgrenze</span></div><div class="stat"><b>80/20</b><span class="small">Nutzer / Betreiber</span></div></div></div></section>
 <div class="notice"><b>Wichtiger Hinweis:</b> Dies ist zunächst eine öffentliche Vorschau. Anmeldung, echtes Guthaben, Partner-Tracking und Auszahlungen sind noch nicht aktiviert. Es werden keine echten Prämien versprochen.</div>
 <section class="section" id="spiele"><div class="section-head"><div><div class="eyebrow">Entdecken</div><h2>Beliebte Spiele</h2></div><span class="small">Angebote folgen nach Partnerfreigabe</span></div><div class="games">
@@ -78,7 +79,8 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
     <p id="ticket-status" class="small" role="status"></p>
     <div id="ticket-list" style="display:grid;gap:10px;margin-top:12px"></div>
   </div>
-</section>\n<section class="section" id="vorteile"><div class="eyebrow">Einfach erklärt</div><h2>So soll Rewardly funktionieren</h2><div class="features" style="margin-top:20px"><div class="feature"><b>1. Angebot auswählen</b><span class="muted">Spiele und Aufgaben werden über zugelassene Partner eingebunden.</span></div><div class="feature"><b>2. Aufgabe erledigen</b><span class="muted">Der Partner bestätigt die Teilnahme und meldet die Vergütung.</span></div><div class="feature"><b>3. Prämie erhalten</b><span class="muted">Nach Bestätigung wird der Nutzeranteil dem Konto gutgeschrieben.</span></div></div></section>
+</section>
+<section class="section" id="vorteile"><div class="eyebrow">Einfach erklärt</div><h2>So soll Rewardly funktionieren</h2><div class="features" style="margin-top:20px"><div class="feature"><b>1. Angebot auswählen</b><span class="muted">Spiele und Aufgaben werden über zugelassene Partner eingebunden.</span></div><div class="feature"><b>2. Aufgabe erledigen</b><span class="muted">Der Partner bestätigt die Teilnahme und meldet die Vergütung.</span></div><div class="feature"><b>3. Prämie erhalten</b><span class="muted">Nach Bestätigung wird der Nutzeranteil dem Konto gutgeschrieben.</span></div></div></section>
 <section class="section" id="auszahlung"><div class="eyebrow">Prämien</div><h2>Geplante Auszahlungen</h2><p class="muted">Mindestbetrag: 5 €. Vorgesehen sind PayPal, Banküberweisung sowie Amazon-, Roblox- und Google-Play-Guthaben. Verfügbarkeit hängt von Partnern, Zahlungsdiensten und rechtlichen Anforderungen ab. Eine Auszahlung ist noch nicht aktiv.</p></section>
 </main>
 <footer class="wrap"><span>© 2026 Rewardly · Projektvorschau</span><span>Datenschutz und Impressum müssen vor dem öffentlichen Betrieb ergänzt werden.</span></footer>
@@ -248,7 +250,9 @@ ticketForm.addEventListener('submit', async (event) => {
   ticketStatus.textContent = 'Dein Ticket wurde erstellt.';
   await loadTickets();
 });
-\nsupabase.auth.onAuthStateChange(() => { refreshAccount(); loadTickets(); });
+
+supabase.auth.onAuthStateChange(() => { refreshAccount(); loadTickets(); });
 refreshAccount();
 </script>
-\n</body></html>
+
+</body></html>
