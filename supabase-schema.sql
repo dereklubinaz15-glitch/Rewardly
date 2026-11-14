@@ -504,3 +504,34 @@ as $$
 $$;
 revoke all on function public.get_bonus_funding_status() from public;
 grant execute on function public.get_bonus_funding_status() to authenticated;
+
+
+-- Nachweisbare Partner-Abrechnungen: Nur Admins dürfen Datensätze sehen.
+-- Einfügen echter Abrechnungen erfolgt später ausschließlich über einen
+-- serverseitigen, authentifizierten Partner-Webhook (niemals aus dem Browser).
+create table if not exists public.partner_revenue (
+  id bigint generated always as identity primary key,
+  provider text not null check (char_length(provider) between 2 and 100),
+  external_reference text not null unique,
+  gross_cents integer not null check (gross_cents > 0),
+  status text not null default 'confirmed' check (status in ('confirmed','reversed')),
+  confirmed_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+alter table public.partner_revenue enable row level security;
+drop policy if exists "Admins can read partner revenue" on public.partner_revenue;
+create policy "Admins can read partner revenue" on public.partner_revenue
+  for select to authenticated using ((select public.is_admin()));
+revoke all on public.partner_revenue from anon, authenticated;
+grant select on public.partner_revenue to authenticated;
+
+create or replace function public.get_partner_revenue_totals()
+returns table(gross_cents bigint)
+language sql stable security definer set search_path=''
+as $$
+  select coalesce(sum(gross_cents),0)::bigint
+  from public.partner_revenue
+  where status='confirmed';
+$$;
+revoke all on function public.get_partner_revenue_totals() from public;
+grant execute on function public.get_partner_revenue_totals() to authenticated;
