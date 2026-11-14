@@ -493,3 +493,14 @@ begin
 end $$;
 revoke all on function public.redeem_bonus_points(integer) from public;
 grant execute on function public.redeem_bonus_points(integer) to authenticated;
+
+
+-- Zeigt angemeldeten Nutzern nur den verfügbaren Gesamtbetrag für Bonus-Umwandlungen.
+create or replace function public.get_bonus_funding_status()
+returns table(available_cents integer)
+language sql stable security definer set search_path=''
+as $$
+  select available_user_cents from public.bonus_funding_pool where id=true;
+$$;
+revoke all on function public.get_bonus_funding_status() from public;
+grant execute on function public.get_bonus_funding_status() to authenticated;
