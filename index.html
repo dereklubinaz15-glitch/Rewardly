@@ -63,7 +63,22 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
 <div class="game"><div class="emoji">🎱</div><h3>Bingo Blitz</h3><p>Bingo rund um die Welt</p><span class="tag">Demnächst</span></div>
 <div class="game"><div class="emoji">❄️</div><h3>Klondike Adventures</h3><p>Expedition im Norden</p><span class="tag">Demnächst</span></div>
 </div></section>
-<section class="section" id="vorteile"><div class="eyebrow">Einfach erklärt</div><h2>So soll Rewardly funktionieren</h2><div class="features" style="margin-top:20px"><div class="feature"><b>1. Angebot auswählen</b><span class="muted">Spiele und Aufgaben werden über zugelassene Partner eingebunden.</span></div><div class="feature"><b>2. Aufgabe erledigen</b><span class="muted">Der Partner bestätigt die Teilnahme und meldet die Vergütung.</span></div><div class="feature"><b>3. Prämie erhalten</b><span class="muted">Nach Bestätigung wird der Nutzeranteil dem Konto gutgeschrieben.</span></div></div></section>
+
+<section class="section" id="support">
+  <div class="eyebrow">Hilfe & Support</div><h2>Meine Support-Tickets</h2>
+  <p class="muted">Du kannst ein Problem melden. Deine Tickets sind nur für dich und den Support sichtbar.</p>
+  <div class="hero-card" style="margin-top:18px">
+    <form id="ticket-form" style="display:grid;gap:12px">
+      <label class="small" for="ticket-subject">Betreff</label>
+      <input id="ticket-subject" required minlength="3" maxlength="120" placeholder="Worum geht es?" style="padding:13px;border-radius:10px;border:1px solid var(--line);background:#0e1324;color:var(--text)">
+      <label class="small" for="ticket-message">Nachricht</label>
+      <textarea id="ticket-message" required minlength="3" maxlength="5000" rows="4" placeholder="Beschreibe dein Problem ..." style="padding:13px;border-radius:10px;border:1px solid var(--line);background:#0e1324;color:var(--text);font:inherit"></textarea>
+      <button class="btn" type="submit">Ticket erstellen</button>
+    </form>
+    <p id="ticket-status" class="small" role="status"></p>
+    <div id="ticket-list" style="display:grid;gap:10px;margin-top:12px"></div>
+  </div>
+</section>\n<section class="section" id="vorteile"><div class="eyebrow">Einfach erklärt</div><h2>So soll Rewardly funktionieren</h2><div class="features" style="margin-top:20px"><div class="feature"><b>1. Angebot auswählen</b><span class="muted">Spiele und Aufgaben werden über zugelassene Partner eingebunden.</span></div><div class="feature"><b>2. Aufgabe erledigen</b><span class="muted">Der Partner bestätigt die Teilnahme und meldet die Vergütung.</span></div><div class="feature"><b>3. Prämie erhalten</b><span class="muted">Nach Bestätigung wird der Nutzeranteil dem Konto gutgeschrieben.</span></div></div></section>
 <section class="section" id="auszahlung"><div class="eyebrow">Prämien</div><h2>Geplante Auszahlungen</h2><p class="muted">Mindestbetrag: 5 €. Vorgesehen sind PayPal, Banküberweisung sowie Amazon-, Roblox- und Google-Play-Guthaben. Verfügbarkeit hängt von Partnern, Zahlungsdiensten und rechtlichen Anforderungen ab. Eine Auszahlung ist noch nicht aktiv.</p></section>
 </main>
 <footer class="wrap"><span>© 2026 Rewardly · Projektvorschau</span><span>Datenschutz und Impressum müssen vor dem öffentlichen Betrieb ergänzt werden.</span></footer>
@@ -130,7 +145,64 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   showStatus('Du wurdest abgemeldet.');
   await refreshAccount();
 });
-supabase.auth.onAuthStateChange(() => refreshAccount());
+
+const ticketForm = document.getElementById('ticket-form');
+const ticketStatus = document.getElementById('ticket-status');
+const ticketList = document.getElementById('ticket-list');
+async function loadTickets() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    ticketList.textContent = 'Bitte melde dich an, um deine Tickets zu sehen oder ein Ticket zu erstellen.';
+    ticketForm.style.display = 'none';
+    return;
+  }
+  ticketForm.style.display = 'grid';
+  const { data, error } = await supabase.from('tickets')
+    .select('id, subject, message, status, created_at')
+    .eq('user_id', user.id).order('created_at', { ascending: false });
+  if (error) {
+    ticketList.textContent = 'Tickets konnten nicht geladen werden: ' + error.message;
+    return;
+  }
+  ticketList.replaceChildren();
+  if (!data.length) {
+    ticketList.textContent = 'Du hast noch keine Support-Tickets.';
+    return;
+  }
+  for (const ticket of data) {
+    const card = document.createElement('div');
+    card.className = 'feature';
+    const title = document.createElement('b');
+    title.textContent = ticket.subject;
+    const body = document.createElement('p');
+    body.className = 'muted';
+    body.textContent = ticket.message;
+    const meta = document.createElement('span');
+    meta.className = 'small';
+    meta.textContent = 'Status: ' + ({open:'Offen',in_progress:'In Bearbeitung',resolved:'Gelöst',closed:'Geschlossen'}[ticket.status] || ticket.status) + ' · ' + new Date(ticket.created_at).toLocaleString('de-DE');
+    card.append(title, body, meta);
+    ticketList.append(card);
+  }
+}
+ticketForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    ticketStatus.textContent = 'Bitte zuerst anmelden.';
+    return;
+  }
+  const subject = document.getElementById('ticket-subject').value.trim();
+  const message = document.getElementById('ticket-message').value.trim();
+  const { error } = await supabase.from('tickets').insert({ user_id: user.id, subject, message });
+  if (error) {
+    ticketStatus.textContent = 'Fehler beim Erstellen: ' + error.message;
+    return;
+  }
+  ticketForm.reset();
+  ticketStatus.textContent = 'Dein Ticket wurde erstellt.';
+  await loadTickets();
+});
+\nsupabase.auth.onAuthStateChange(() => { refreshAccount(); loadTickets(); });
 refreshAccount();
 </script>
 \n</body></html>
