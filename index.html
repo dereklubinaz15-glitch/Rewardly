@@ -13,7 +13,7 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
 </style>
 </head>
 <body>
-<header class="wrap"><a class="brand" href="#">Reward<span>ly</span></a><nav><a href="#spiele">Spiele</a><a href="#vorteile">So funktioniert's</a><a href="#auszahlung">Auszahlungen</a></nav><a class="btn" href="#konto">Anmelden / Registrieren</a></header>
+<header class="wrap"><a class="brand" href="#">Reward<span>ly</span></a><nav><a href="#start">Startseite</a><a href="#spiele">Spiele</a><a href="#konto">Mein Konto</a><a href="#guthaben">Guthaben</a><a href="#auszahlung">Auszahlung</a><a href="#support">Meine Tickets</a></nav><a class="btn" href="#konto">Anmelden / Registrieren</a></header>
 <main class="wrap">
 
 <section class="section" id="konto" style="padding-top:20px">
@@ -45,7 +45,7 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
     </div>
   </div>
 </section>
-<section class="hero"><div><div class="eyebrow">Deine Rewards-Welt</div><h1>Spielen.<br><span style="color:var(--green)">Sammeln.</span><br>Prämien erhalten.</h1><p>Entdecke spannende Spiele und Angebote. Erledige Aufgaben und sammle Punkte für mögliche Prämien.</p><a class="btn" href="#spiele">Jetzt entdecken&nbsp; →</a><p class="small">Kostenlos starten · Keine eigenen Käufe nötig, sofern ein Angebot nichts anderes angibt.</p></div>
+<section class="hero" id="start"><div><div class="eyebrow">Deine Rewards-Welt</div><h1>Spielen.<br><span style="color:var(--green)">Sammeln.</span><br>Prämien erhalten.</h1><p>Entdecke spannende Spiele und Angebote. Erledige Aufgaben und sammle Punkte für mögliche Prämien.</p><a class="btn" href="#spiele">Jetzt entdecken&nbsp; →</a><p class="small">Kostenlos starten · Keine eigenen Käufe nötig, sofern ein Angebot nichts anderes angibt.</p></div>
 <div class="hero-card"><div class="small">Dein Rewardly-Dashboard · Vorschau</div><div class="small" style="margin-top:18px">Beispiel-Guthaben</div><div class="balance">0,00 €</div><div class="small">Sammle bestätigte Prämien durch teilnehmende Partnerangebote.</div><div class="stats"><div class="stat"><b>14</b><span class="small">Spiele geplant</span></div><div class="stat"><b>5 €</b><span class="small">Auszahlungsgrenze</span></div><div class="stat"><b>80/20</b><span class="small">Nutzer / Betreiber</span></div></div></div></section>
 <div class="notice"><b>Wichtiger Hinweis:</b> Dies ist zunächst eine öffentliche Vorschau. Anmeldung, echtes Guthaben, Partner-Tracking und Auszahlungen sind noch nicht aktiviert. Es werden keine echten Prämien versprochen.</div>
 <section class="section" id="spiele"><div class="section-head"><div><div class="eyebrow">Entdecken</div><h2>Beliebte Spiele</h2></div><span class="small">Angebote folgen nach Partnerfreigabe</span></div><div class="games">
@@ -81,7 +81,26 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
   </div>
 </section>
 <section class="section" id="vorteile"><div class="eyebrow">Einfach erklärt</div><h2>So soll Rewardly funktionieren</h2><div class="features" style="margin-top:20px"><div class="feature"><b>1. Angebot auswählen</b><span class="muted">Spiele und Aufgaben werden über zugelassene Partner eingebunden.</span></div><div class="feature"><b>2. Aufgabe erledigen</b><span class="muted">Der Partner bestätigt die Teilnahme und meldet die Vergütung.</span></div><div class="feature"><b>3. Prämie erhalten</b><span class="muted">Nach Bestätigung wird der Nutzeranteil dem Konto gutgeschrieben.</span></div></div></section>
-<section class="section" id="auszahlung"><div class="eyebrow">Prämien</div><h2>Geplante Auszahlungen</h2><p class="muted">Mindestbetrag: 5 €. Vorgesehen sind PayPal, Banküberweisung sowie Amazon-, Roblox- und Google-Play-Guthaben. Verfügbarkeit hängt von Partnern, Zahlungsdiensten und rechtlichen Anforderungen ab. Eine Auszahlung ist noch nicht aktiv.</p></section>
+<section class="section" id="guthaben"><div class="eyebrow">Dein Kontostand</div><h2>Guthaben</h2><div class="hero-card" style="margin-top:16px"><div class="small">Bestätigtes Guthaben</div><div class="balance" id="wallet-balance">Bitte anmelden</div><p class="small">Nur bestätigte Partnervergütungen werden gutgeschrieben. Ausstehende oder abgelehnte Angebote zählen nicht.</p></div></section>
+<section class="section" id="auszahlung"><div class="eyebrow">Prämien anfordern</div><h2>Auszahlung</h2><p class="muted">Wähle einen Betrag und eine Auszahlungsmethode. Ein Antrag wird zunächst geprüft und ist noch keine Überweisung oder Gutscheinausgabe.</p>
+<div class="hero-card" style="margin-top:16px">
+<form id="payout-form" style="display:grid;gap:12px">
+<label class="small" for="payout-amount">Auszahlungsbetrag</label>
+<select id="payout-amount" required style="padding:13px;border-radius:10px;border:1px solid var(--line);background:#0e1324;color:var(--text)">
+<option value="500">5 €</option><option value="1000">10 €</option><option value="2000">20 €</option><option value="3000">30 €</option><option value="5000">50 €</option><option value="10000">100 €</option><option value="20000">200 €</option><option value="50000">500 €</option>
+</select>
+<label class="small" for="payout-method">Auszahlungsmethode</label>
+<select id="payout-method" required style="padding:13px;border-radius:10px;border:1px solid var(--line);background:#0e1324;color:var(--text)">
+<option value="paypal">PayPal</option><option value="bank">Banküberweisung</option><option value="amazon">Amazon-Gutschein</option><option value="roblox">Roblox-Guthaben</option><option value="google_play">Google-Play-Guthaben</option>
+</select>
+<label class="small" for="payout-destination">Ziel / Kontodaten</label>
+<input id="payout-destination" required maxlength="250" placeholder="z. B. PayPal-E-Mail oder gewünschte Gutscheinangabe" style="padding:13px;border-radius:10px;border:1px solid var(--line);background:#0e1324;color:var(--text)">
+<button class="btn" type="submit">Auszahlung beantragen</button>
+</form>
+<p id="payout-status" class="small" role="status"></p>
+<p class="small">Wichtig: Anträge werden erst nach Prüfung bezahlt. Zahlungsanbieter können Identitätsprüfungen verlangen. Rewardly kann diese nicht umgehen.</p>
+<div style="margin-top:22px"><b>Meine Auszahlungsanträge</b><div id="payout-list" class="small" style="display:grid;gap:8px;margin-top:10px">Bitte anmelden, um deine Anträge zu sehen.</div></div>
+</div></section>
 </main>
 <footer class="wrap"><span>© 2026 Rewardly · Projektvorschau</span><span>Datenschutz und Impressum müssen vor dem öffentlichen Betrieb ergänzt werden.</span></footer>
 
@@ -251,8 +270,64 @@ ticketForm.addEventListener('submit', async (event) => {
   await loadTickets();
 });
 
-supabase.auth.onAuthStateChange(() => { refreshAccount(); loadTickets(); });
+
+const payoutForm = document.getElementById('payout-form');
+const payoutStatus = document.getElementById('payout-status');
+const payoutList = document.getElementById('payout-list');
+const euro = cents => (Number(cents || 0) / 100).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+async function loadPayouts() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    document.getElementById('wallet-balance').textContent = 'Bitte anmelden';
+    payoutForm.style.display = 'none';
+    payoutList.textContent = 'Bitte anmelden, um deine Anträge zu sehen.';
+    return;
+  }
+  payoutForm.style.display = 'grid';
+  const [{data: ledger, error: ledgerError}, {data: requests, error: requestError}] = await Promise.all([
+    supabase.from('reward_ledger').select('amount_cents').eq('user_id',user.id),
+    supabase.from('payout_requests').select('amount_cents,method,status,created_at').eq('user_id',user.id).order('created_at',{ascending:false})
+  ]);
+  if (ledgerError) {
+    document.getElementById('wallet-balance').textContent = '—';
+  } else {
+    const earned = (ledger || []).reduce((sum,row)=>sum+Number(row.amount_cents||0),0);
+    const reserved = (requests || []).filter(row=>['pending','processing'].includes(row.status)).reduce((sum,row)=>sum+Number(row.amount_cents||0),0);
+    document.getElementById('wallet-balance').textContent = euro(earned-reserved);
+  }
+  payoutList.replaceChildren();
+  if (requestError) { payoutList.textContent = 'Anträge konnten nicht geladen werden.'; return; }
+  if (!requests || !requests.length) { payoutList.textContent = 'Noch keine Auszahlungsanträge.'; return; }
+  const labels = {paypal:'PayPal',bank:'Banküberweisung',amazon:'Amazon',roblox:'Roblox',google_play:'Google Play',pending:'Ausstehend',processing:'In Prüfung',completed:'Abgeschlossen',rejected:'Abgelehnt'};
+  for (const row of requests) {
+    const line = document.createElement('div');
+    line.className = 'feature';
+    line.textContent = euro(row.amount_cents) + ' · ' + (labels[row.method]||row.method) + ' · ' + (labels[row.status]||row.status) + ' · ' + new Date(row.created_at).toLocaleDateString('de-DE');
+    payoutList.append(line);
+  }
+}
+payoutForm.addEventListener('submit',async event=>{
+  event.preventDefault();
+  const {data:{user}} = await supabase.auth.getUser();
+  if(!user){payoutStatus.textContent='Bitte zuerst anmelden.';return;}
+  const amount_cents = Number(document.getElementById('payout-amount').value);
+  const method = document.getElementById('payout-method').value;
+  const destination = document.getElementById('payout-destination').value.trim();
+  if(!destination){payoutStatus.textContent='Bitte Zielangabe eintragen.';return;}
+  const button = payoutForm.querySelector('button[type="submit"]');
+  button.disabled = true;
+  payoutStatus.textContent='Dein Antrag wird geprüft ...';
+  const {error} = await supabase.from('payout_requests').insert({user_id:user.id,amount_cents,method,destination});
+  button.disabled = false;
+  if(error){payoutStatus.textContent='Antrag nicht erstellt: '+error.message;return;}
+  payoutForm.reset();
+  payoutStatus.textContent='Auszahlungsantrag wurde eingereicht. Er steht zunächst auf „Ausstehend“.';
+  await loadPayouts();
+});
+
+supabase.auth.onAuthStateChange(() => { refreshAccount(); loadTickets(); loadPayouts(); });
 refreshAccount();
+loadPayouts();
 </script>
 
 </body></html>
