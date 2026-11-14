@@ -41,7 +41,11 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
         <span class="small" id="balance-note">Es werden nur bestätigte Buchungen angezeigt.</span>
       </div>
       <p class="small" id="balance-error"></p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
       <button class="btn" type="button" id="logout-btn" style="background:#29334e;color:white">Abmelden</button>
+      <button class="btn" type="button" id="delete-account-btn" style="background:#542b37;color:white">Konto-Löschung beantragen</button>
+    </div>
+    <p id="delete-account-status" class="small" role="status"></p>
     </div>
   </div>
 </section>
@@ -165,6 +169,23 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   if (error) return showStatus(error.message, true);
   showStatus('Du wurdest abgemeldet.');
   await refreshAccount();
+});
+document.getElementById('delete-account-btn').addEventListener('click', async () => {
+  const status = document.getElementById('delete-account-status');
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { status.textContent = 'Bitte zuerst anmelden.'; return; }
+  const confirmed = window.confirm('Möchtest du eine Löschung deines Rewardly-Kontos beantragen? Das Konto wird nicht sofort gelöscht.');
+  if (!confirmed) return;
+  const { error } = await supabase.from('tickets').insert({
+    user_id: user.id,
+    subject: 'Bitte mein Rewardly-Konto löschen',
+    message: 'Hiermit beantrage ich die Löschung meines Rewardly-Kontos und meiner personenbezogenen Daten, soweit keine gesetzlichen Aufbewahrungspflichten entgegenstehen.'
+  });
+  if (error) { status.textContent = 'Antrag konnte nicht gesendet werden: ' + error.message; return; }
+  status.textContent = 'Dein Löschungsantrag wurde als Support-Ticket gespeichert. Das Konto ist noch nicht gelöscht; die Bearbeitung muss durch den Betreiber erfolgen.';
+  await supabase.auth.signOut();
+  await refreshAccount();
+  await loadTickets();
 });
 
 const ticketForm = document.getElementById('ticket-form');
