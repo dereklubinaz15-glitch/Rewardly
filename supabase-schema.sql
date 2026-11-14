@@ -103,3 +103,36 @@ create policy "Users can request own payout" on public.payout_requests
   for insert to authenticated with check (auth.uid() = user_id and status = 'pending');
 
 -- Absichtlich keine Browser-Rechte zum Ändern von Rollen, Guthaben, Ledger oder Auszahlungsstatus.
+
+-- Sichere Prüfung für Auszahlungsanträge: feste Beträge und kein Überziehen des bestätigten Guthabens.
+create or replace function public.validate_payout_request()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  available_cents integer;
+begin
+  if auth.uid() is null or new.user_id <> auth.uid() then
+    raise exception 'Nicht berechtigt.';
+  end if;
+  if new.amount_cents not in (500,1000,2000,3000,5000,10000,20000,50000) then
+    raise exception 'Bitte einen der erlaubten Auszahlungsbeträge auswählen.';
+  end if;
+  select coalesce(sum(amount_cents),0)::integer into available_cents
+  from public.reward_ledger where user_id = new.user_id;
+  select available_cents - coalesce(sum(amount_cents),0)::integer into available_cents
+  from public.payout_requests
+  where user_id = new.user_id and status in ('pending','processing');
+  if new.amount_cents > available_cents then
+    raise exception 'Dein bestätigtes verfügbares Guthaben reicht dafür nicht aus.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_payout_request_before_insert on public.payout_requests;
+create trigger validate_payout_request_before_insert
+before insert on public.payout_requests
+for each row execute function public.validate_payout_request();
