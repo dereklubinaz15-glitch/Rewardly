@@ -41,6 +41,17 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
         <span class="small" id="balance-note">Es werden nur bestätigte Buchungen angezeigt.</span>
       </div>
       <p class="small" id="balance-error"></p>
+      <div id="account-admin-rights" class="feature" style="display:none;margin:14px 0;border-color:#8aa85a">
+        <b style="color:var(--green)">Deine Admin-Rechte</b>
+        <p class="small">Dieses Feld ist nur für dein Admin-Konto sichtbar.</p>
+        <ul class="small" style="padding-left:20px;margin-bottom:0">
+          <li>Nutzer und Profile ansehen</li>
+          <li>Support-Tickets ansehen, beantworten und Status ändern</li>
+          <li>Auszahlungsanträge prüfen und Status ändern</li>
+          <li>Rewardly-Guthabenbuchungen einsehen</li>
+        </ul>
+        <p class="small">Deine Admin-Funktionen findest du zusätzlich über den Menüpunkt „Admin“.</p>
+      </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
       <button class="btn" type="button" id="logout-btn" style="background:#29334e;color:white">Abmelden</button>
       <button class="btn" type="button" id="delete-account-btn" style="background:#542b37;color:white">Konto-Löschung beantragen</button>
@@ -137,6 +148,8 @@ async function refreshAccount() {
     form.style.display = 'none';
     accountPanel.style.display = 'block';
     document.getElementById('account-email').textContent = user.email || '';
+    const { data: ownProfile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    document.getElementById('account-admin-rights').style.display = ownProfile?.role === 'admin' ? 'block' : 'none';
     statusBox.style.display = 'none';
     const balanceEl = document.getElementById('account-balance');
     const errorEl = document.getElementById('balance-error');
