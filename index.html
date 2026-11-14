@@ -156,6 +156,16 @@ nav{gap:8px;align-items:center}nav a{padding:9px 12px;border-radius:10px;color:#
 <p class="small">Wichtig: Anträge werden erst nach Prüfung bezahlt. Zahlungsanbieter können Identitätsprüfungen verlangen. Rewardly kann diese nicht umgehen.</p>
 <div style="margin-top:22px"><b>Meine Auszahlungsanträge</b><div id="payout-list" class="small" style="display:grid;gap:8px;margin-top:10px">Bitte anmelden, um deine Anträge zu sehen.</div></div>
 </div></section>
+<section class="section" id="reward-extras">
+<div class="eyebrow">Mehr Rewards</div><h2>Bonus, Freunde & Community</h2>
+<div class="features" style="margin-top:18px">
+<div class="feature"><b>🎁 Täglicher Bonus</b><p class="small">Täglich 10 Bonuspunkte, ab 7 Tagen Serie 25 Punkte. Punkte sind keine Euro und nicht auszahlbar.</p><button class="btn" id="daily-bonus-btn" type="button">Tagesbonus abholen</button><p class="small" id="daily-bonus-status"></p><p class="small" id="points-balance">Punkte: —</p></div>
+<div class="feature"><b>👥 Freunde werben</b><p class="small">Teile deinen persönlichen Code. Prämien erst nach geprüfter Partnerqualifikation.</p><p class="small">Dein Code: <b id="my-referral-code">Wird geladen ...</b></p><button class="btn" id="copy-referral-btn" type="button">Code kopieren</button><form id="referral-form" style="display:grid;gap:8px;margin-top:12px"><input id="referral-input" maxlength="20" placeholder="Einladungscode eingeben" style="padding:10px;border-radius:9px;border:1px solid var(--line);background:#0e1324;color:white"><button class="btn" type="submit">Code einlösen</button></form><p class="small" id="referral-status"></p><p class="small" id="referral-count">Eingeladene Freunde: —</p></div>
+<div class="feature"><b>🏆 Erfolge & Abzeichen</b><p class="small">Schalte Abzeichen durch Rewardly-Aktivitäten frei.</p><div id="achievement-list" class="small">Bitte anmelden.</div></div>
+<div class="feature"><b>🔔 Benachrichtigungen</b><p class="small">Support-Antworten und Auszahlungsstatus.</p><div id="notification-list" class="small">Bitte anmelden.</div></div>
+<div class="feature"><b>📊 Rangliste</b><p class="small">Top 10 nach bestätigten Rewards. Keine E-Mail-Adressen werden angezeigt.</p><div id="leaderboard-list" class="small">Wird geladen ...</div></div>
+<div class="feature"><b>🎮 Angebotswand</b><p class="small">Spiele und Aufgaben an einem Ort. Partnerangebote sind noch nicht freigeschaltet.</p><div id="offerwall-list" class="small">14 Spiele geplant · Partnerfreigabe ausstehend.</div></div>
+</div></section>
 <section class="section" id="admin" style="display:none">
   <div class="eyebrow">Nur für Administratoren</div><h2>Rewardly-Verwaltung</h2>
   <p class="muted">Hier kannst du Nutzer, Support-Tickets und Auszahlungsanträge einsehen und bearbeiten.</p>
@@ -181,8 +191,9 @@ nav{gap:8px;align-items:center}nav a{padding:9px 12px;border-radius:10px;color:#
     <p class="small">Hier siehst du, welche Rewardly-Spiele Nutzer geöffnet haben. Das Öffnen ist kein Nachweis für abgeschlossene Aufgaben oder verdiente Prämien.</p>
     <div id="admin-game-activity" style="display:grid;gap:9px;margin-top:12px">Wird geladen ...</div>
   </div>
+<div class="feature" style="margin-top:18px"><b style="font-size:20px">📈 Admin-Statistiken</b><p class="small">Konten, bestätigte Nutzer-Rewards und offene Auszahlungen. Der Betreiberanteil wird erst aus bestätigten Partnerumsätzen berechnet.</p><div class="stats"><div class="stat"><b id="stats-users">—</b><span class="small">Nutzer</span></div><div class="stat"><b id="stats-rewards">—</b><span class="small">Nutzer-Rewards</span></div><div class="stat"><b id="stats-payouts">—</b><span class="small">Offene Auszahlungen</span></div></div><p class="small" id="stats-operator-share">Betreiberanteil (20 %): Noch keine bestätigten Partnerumsätze erfasst.</p></div>
   <div class="features" style="margin-top:18px">
-    <div class="feature"><b>Support-Tickets</b><div id="admin-tickets" class="small">Wird geladen ...</div></div>
+    <div class="feature"><b>Support-Tickets & Live-Support</b><div id="admin-tickets" class="small">Wird geladen ...</div></div>
     <div class="feature"><b>Auszahlungen</b><div id="admin-payouts" class="small">Wird geladen ...</div></div>
   </div>
 </section>
