@@ -176,6 +176,11 @@ nav{gap:8px;align-items:center}nav a{padding:9px 12px;border-radius:10px;color:#
     </div>
     <div id="admin-users" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:12px">Wird geladen ...</div>
   </div>
+  <div class="feature" style="margin-top:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><b style="font-size:20px">Spielaktivitäten</b><span id="admin-game-count" class="small">Wird geladen ...</span></div>
+    <p class="small">Hier siehst du, welche Rewardly-Spiele Nutzer geöffnet haben. Das Öffnen ist kein Nachweis für abgeschlossene Aufgaben oder verdiente Prämien.</p>
+    <div id="admin-game-activity" style="display:grid;gap:9px;margin-top:12px">Wird geladen ...</div>
+  </div>
   <div class="features" style="margin-top:18px">
     <div class="feature"><b>Support-Tickets</b><div id="admin-tickets" class="small">Wird geladen ...</div></div>
     <div class="feature"><b>Auszahlungen</b><div id="admin-payouts" class="small">Wird geladen ...</div></div>
@@ -528,6 +533,25 @@ function makeAdminButton(label, onClick) {
   b.type = 'button'; b.className = 'btn'; b.style.cssText = 'padding:7px 10px;font-size:12px;margin:5px 5px 0 0';
   b.textContent = label; b.addEventListener('click', onClick); return b;
 }
+async function loadAdminGameActivity() {
+  const target=document.getElementById('admin-game-activity');
+  const count=document.getElementById('admin-game-count');
+  const {data:events,error}=await supabase.from('game_activity').select('id,user_id,game_name,event_type,created_at').order('created_at',{ascending:false}).limit(200);
+  target.replaceChildren();
+  if(error) { count.textContent='Fehler'; target.textContent='Spielaktivitäten konnten nicht geladen werden: '+error.message; return; }
+  count.textContent=(events?.length||0)+' Aktivitäten';
+  if(!events?.length) { target.textContent='Noch keine Spielaktivitäten vorhanden.'; return; }
+  const ids=[...new Set(events.map(x=>x.user_id))];
+  const {data:profiles}=await supabase.from('profiles').select('id,username').in('id',ids);
+  const names=new Map((profiles||[]).map(x=>[x.id,x.username||'Ohne Benutzernamen']));
+  for(const event of events) {
+    const card=document.createElement('div'); card.className='feature';
+    const title=document.createElement('b'); title.textContent=(gameIcons[event.game_name]||'🎮')+' '+event.game_name;
+    const who=document.createElement('p'); who.className='small'; who.textContent='Nutzer: '+(names.get(event.user_id)||event.user_id)+' · '+event.user_id;
+    const when=document.createElement('p'); when.className='small'; when.textContent=(event.event_type==='opened'?'Geöffnet':'Gestartet')+' am '+new Date(event.created_at).toLocaleString('de-DE');
+    card.append(title,who,when); target.append(card);
+  }
+}
 async function loadAdmin() {
   const {data:{user}} = await supabase.auth.getUser();
   if (!user) { adminSectionEl.style.display='none'; adminNav.style.display='none'; return; }
@@ -611,6 +635,7 @@ async function loadAdmin() {
     const send=makeAdminButton('Antwort senden',async()=>{if(!reply.value.trim())return adminMessage('Bitte eine Antwort eingeben.',true);const {data:{user:adminUser}}=await supabase.auth.getUser();const {error}=await supabase.from('ticket_messages').insert({ticket_id:t.id,user_id:adminUser.id,message:reply.value.trim()});if(error)adminMessage('Antwort fehlgeschlagen: '+error.message,true);else{reply.value='';adminMessage('Antwort für Ticket #'+t.id+' gespeichert.');}});
     item.append(title,body,status,save,reply,send);adminTickets.append(item);
   }
+  await loadAdminGameActivity();
   adminPayouts.replaceChildren();
   if (payoutsResult.error) adminPayouts.textContent='Fehler: '+payoutsResult.error.message;
   else if (!payoutsResult.data.length) adminPayouts.textContent='Keine Auszahlungsanträge vorhanden.';
