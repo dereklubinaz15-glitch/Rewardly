@@ -35,6 +35,12 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
     <div id="account-panel" style="display:none;margin-top:18px">
       <b>Du bist angemeldet.</b>
       <p class="small" id="account-email"></p>
+      <div class="stat" style="margin:14px 0">
+        <span class="small">Dein bestätigtes Rewardly-Guthaben</span>
+        <div class="balance" id="account-balance" style="font-size:32px">0,00 €</div>
+        <span class="small" id="balance-note">Es werden nur bestätigte Buchungen angezeigt.</span>
+      </div>
+      <p class="small" id="balance-error"></p>
       <button class="btn" type="button" id="logout-btn" style="background:#29334e;color:white">Abmelden</button>
     </div>
   </div>
@@ -82,6 +88,20 @@ async function refreshAccount() {
     accountPanel.style.display = 'block';
     document.getElementById('account-email').textContent = user.email || '';
     statusBox.style.display = 'none';
+    const balanceEl = document.getElementById('account-balance');
+    const errorEl = document.getElementById('balance-error');
+    const { data: entries, error } = await supabase
+      .from('reward_ledger')
+      .select('amount_cents')
+      .eq('user_id', user.id);
+    if (error) {
+      balanceEl.textContent = '—';
+      errorEl.textContent = 'Guthaben konnte noch nicht geladen werden. Es wurde nichts gutgeschrieben.';
+    } else {
+      const cents = (entries || []).reduce((sum, entry) => sum + Number(entry.amount_cents || 0), 0);
+      balanceEl.textContent = (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+      errorEl.textContent = '';
+    }
   } else {
     form.style.display = 'grid';
     accountPanel.style.display = 'none';
