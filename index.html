@@ -140,7 +140,18 @@ nav{gap:8px;align-items:center}nav a{padding:9px 12px;border-radius:10px;color:#
   <div id="admin-status" class="notice" style="display:none"></div>
   <div class="feature" style="margin-top:18px">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><b style="font-size:20px">Alle Nutzer</b><span id="admin-user-count" class="small">Nutzer werden geladen ...</span></div>
-    <p class="small">Hier siehst du die registrierten Konten. Du kannst Nutzer sperren oder wieder entsperren. Dein eigenes Admin-Konto bleibt geschützt.</p>
+    <p class="small">Hier siehst du die registrierten Konten. Suche nach Nutzername oder ID und filtere nach dem Kontostatus. Dein eigenes Admin-Konto bleibt geschützt.</p>
+    <div class="stats" style="margin:14px 0">
+      <div class="stat"><b id="admin-total-count">0</b><span class="small">Nutzer gesamt</span></div>
+      <div class="stat"><b id="admin-active-count">0</b><span class="small">Aktiv</span></div>
+      <div class="stat"><b id="admin-banned-count">0</b><span class="small">Gesperrt</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(180px,1fr) 180px;gap:10px;margin:12px 0">
+      <input id="admin-user-search" type="search" placeholder="Nutzername oder ID suchen ..." aria-label="Nutzer suchen" style="min-width:0;padding:12px;border-radius:10px;border:1px solid var(--line);background:#0e1324;color:var(--text)">
+      <select id="admin-user-filter" aria-label="Nutzerstatus filtern" style="padding:12px;border-radius:10px;border:1px solid var(--line);background:#0e1324;color:var(--text)">
+        <option value="all">Alle Nutzer</option><option value="active">Nur aktive</option><option value="banned">Nur gesperrte</option>
+      </select>
+    </div>
     <div id="admin-users" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:12px">Wird geladen ...</div>
   </div>
   <div class="features" style="margin-top:18px">
@@ -446,6 +457,8 @@ async function loadAdmin() {
   else if (!usersResult.data.length) adminUsers.textContent='Noch keine Nutzer.';
   else for (const u of usersResult.data) {
     const item=document.createElement('div'); item.className='feature'; item.style.marginBottom='10px';
+    item.dataset.search=(String(u.username||'')+' '+u.id).toLowerCase();
+    item.dataset.state=u.is_banned ? 'banned' : 'active';
     const name=document.createElement('b');
     name.textContent=(u.username||'Ohne Benutzername')+' · '+u.role;
     const details=document.createElement('p'); details.className='small';
@@ -475,6 +488,21 @@ async function loadAdmin() {
     }
     adminUsers.append(item);
   }
+  const allUsers=usersResult.data||[];
+  document.getElementById('admin-total-count').textContent=allUsers.length;
+  document.getElementById('admin-active-count').textContent=allUsers.filter(x=>!x.is_banned).length;
+  document.getElementById('admin-banned-count').textContent=allUsers.filter(x=>x.is_banned).length;
+  const filterAdminUsers=()=>{
+    const query=(document.getElementById('admin-user-search').value||'').trim().toLowerCase();
+    const state=document.getElementById('admin-user-filter').value;
+    for(const card of adminUsers.children){
+      const matchesText=card.dataset.search.includes(query);
+      const matchesState=state==='all'||card.dataset.state===state;
+      card.style.display=matchesText&&matchesState?'':'none';
+    }
+  };
+  document.getElementById('admin-user-search').oninput=filterAdminUsers;
+  document.getElementById('admin-user-filter').onchange=filterAdminUsers;
   adminTickets.replaceChildren();
   if (ticketsResult.error) adminTickets.textContent='Fehler: '+ticketsResult.error.message;
   else if (!ticketsResult.data.length) adminTickets.textContent='Keine Tickets vorhanden.';
