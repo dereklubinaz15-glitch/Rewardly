@@ -120,8 +120,12 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
   <div class="eyebrow">Nur für Administratoren</div><h2>Rewardly-Verwaltung</h2>
   <p class="muted">Hier kannst du Nutzer, Support-Tickets und Auszahlungsanträge einsehen und bearbeiten.</p>
   <div id="admin-status" class="notice" style="display:none"></div>
+  <div class="feature" style="margin-top:18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><b style="font-size:20px">Alle Nutzer</b><span id="admin-user-count" class="small">Nutzer werden geladen ...</span></div>
+    <p class="small">Hier siehst du die registrierten Konten. Du kannst Nutzer sperren oder wieder entsperren. Dein eigenes Admin-Konto bleibt geschützt.</p>
+    <div id="admin-users" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:12px">Wird geladen ...</div>
+  </div>
   <div class="features" style="margin-top:18px">
-    <div class="feature"><b>Nutzer</b><div id="admin-users" class="small">Wird geladen ...</div></div>
     <div class="feature"><b>Support-Tickets</b><div id="admin-tickets" class="small">Wird geladen ...</div></div>
     <div class="feature"><b>Auszahlungen</b><div id="admin-payouts" class="small">Wird geladen ...</div></div>
   </div>
@@ -418,6 +422,8 @@ async function loadAdmin() {
     supabase.from('payout_requests').select('id,user_id,amount_cents,method,status,created_at').order('created_at',{ascending:false}).limit(100)
   ]);
   adminUsers.replaceChildren();
+  const userCountEl=document.getElementById('admin-user-count');
+  if (userCountEl) userCountEl.textContent=usersResult.error ? 'Fehler beim Laden' : (usersResult.data.length+' Nutzer angezeigt (max. 100)');
   if (usersResult.error) adminUsers.textContent='Fehler: '+usersResult.error.message;
   else if (!usersResult.data.length) adminUsers.textContent='Noch keine Nutzer.';
   else for (const u of usersResult.data) {
