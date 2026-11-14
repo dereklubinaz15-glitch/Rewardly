@@ -148,8 +148,23 @@ async function refreshAccount() {
     form.style.display = 'none';
     accountPanel.style.display = 'block';
     document.getElementById('account-email').textContent = user.email || '';
-    const { data: ownProfile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    const { data: ownProfile } = await supabase.from('profiles').select('role,is_banned,ban_reason').eq('id', user.id).maybeSingle();
     document.getElementById('account-admin-rights').style.display = ownProfile?.role === 'admin' ? 'block' : 'none';
+    let banNotice = document.getElementById('account-ban-notice');
+    if (!banNotice) {
+      banNotice = document.createElement('div');
+      banNotice.id = 'account-ban-notice';
+      banNotice.className = 'notice';
+      banNotice.style.display = 'none';
+      document.getElementById('account-email').after(banNotice);
+    }
+    if (ownProfile?.is_banned) {
+      banNotice.style.display = 'block';
+      banNotice.textContent = 'Dein Rewardly-Konto ist gesperrt. Grund: ' + (ownProfile.ban_reason || 'Nicht angegeben') + '. Kontofunktionen und neue Anträge sind blockiert.';
+    } else {
+      banNotice.style.display = 'none';
+      banNotice.textContent = '';
+    }
     statusBox.style.display = 'none';
     const balanceEl = document.getElementById('account-balance');
     const errorEl = document.getElementById('balance-error');
@@ -398,7 +413,7 @@ async function loadAdmin() {
   adminTickets.textContent='Lade Tickets ...';
   adminPayouts.textContent='Lade Auszahlungen ...';
   const [usersResult,ticketsResult,payoutsResult] = await Promise.all([
-    supabase.from('profiles').select('id,username,role,created_at').order('created_at',{ascending:false}).limit(100),
+    supabase.from('profiles').select('id,username,role,is_banned,ban_reason,banned_at,created_at').order('created_at',{ascending:false}).limit(100),
     supabase.from('tickets').select('id,user_id,subject,message,status,created_at').order('created_at',{ascending:false}).limit(100),
     supabase.from('payout_requests').select('id,user_id,amount_cents,method,status,created_at').order('created_at',{ascending:false}).limit(100)
   ]);
@@ -406,8 +421,34 @@ async function loadAdmin() {
   if (usersResult.error) adminUsers.textContent='Fehler: '+usersResult.error.message;
   else if (!usersResult.data.length) adminUsers.textContent='Noch keine Nutzer.';
   else for (const u of usersResult.data) {
-    const item=document.createElement('p');
-    item.textContent=(u.username||'Ohne Benutzername')+' · '+u.role+' · '+u.id;
+    const item=document.createElement('div'); item.className='feature'; item.style.marginBottom='10px';
+    const name=document.createElement('b');
+    name.textContent=(u.username||'Ohne Benutzername')+' · '+u.role;
+    const details=document.createElement('p'); details.className='small';
+    details.textContent='ID: '+u.id+' · Erstellt: '+new Date(u.created_at).toLocaleDateString('de-DE');
+    const state=document.createElement('p'); state.className='small';
+    state.textContent=u.is_banned ? 'GESPERRT · Grund: '+(u.ban_reason||'Nicht angegeben') : 'Aktiv';
+    item.append(name,details,state);
+    if (u.id !== user.id) {
+      const action=makeAdminButton(u.is_banned ? 'Nutzer entsperren' : 'Nutzer sperren',async()=>{
+        let reason=null;
+        if (!u.is_banned) {
+          reason=window.prompt('Grund für die Sperre (wird intern gespeichert):');
+          if (reason===null) return;
+          reason=reason.trim();
+          if (!reason) return adminMessage('Bitte einen Sperrgrund eingeben.',true);
+        }
+        const changes=u.is_banned
+          ? {is_banned:false,ban_reason:null,banned_at:null}
+          : {is_banned:true,ban_reason:reason,banned_at:new Date().toISOString()};
+        const {error}=await supabase.from('profiles').update(changes).eq('id',u.id);
+        if(error) adminMessage('Nutzerstatus konnte nicht geändert werden: '+error.message,true);
+        else { adminMessage(u.is_banned ? 'Nutzer wurde entsperrt.' : 'Nutzer wurde gesperrt.'); await loadAdmin(); }
+      });
+      item.append(action);
+    } else {
+      const own=document.createElement('p'); own.className='small'; own.textContent='Dein eigenes Admin-Konto kann hier nicht gesperrt werden.'; item.append(own);
+    }
     adminUsers.append(item);
   }
   adminTickets.replaceChildren();
