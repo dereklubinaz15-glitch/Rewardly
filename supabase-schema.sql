@@ -436,3 +436,11 @@ end $$;
 drop trigger if exists payout_status_notification on public.payout_requests;
 create trigger payout_status_notification after update on public.payout_requests
 for each row execute function public.notify_payout_change();
+
+-- Realtime für Support-Antworten (Live-Aktualisierung im geöffneten Browser).
+do $$
+begin
+  alter publication supabase_realtime add table public.ticket_messages;
+exception when duplicate_object then
+  null;
+end $$;
