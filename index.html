@@ -201,26 +201,43 @@ const gameIcons = {'Domino Dreams':'🀄','Disney Solitaire':'🏰','Monopoly GO
 async function loadGameHistory(userId) {
   const list=document.getElementById('game-history-list');
   const count=document.getElementById('game-history-count');
-  const {data,error}=await supabase.from('game_activity').select('id,game_name,event_type,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(30);
+  const [{data:events,error},{data:ledger, error:ledgerError}]=await Promise.all([
+    supabase.from('game_activity').select('id,game_name,event_type,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(100),
+    supabase.from('reward_ledger').select('amount_cents,description,created_at,entry_type').eq('user_id',userId).order('created_at',{ascending:false}).limit(200)
+  ]);
   list.replaceChildren();
   if(error) {
     count.textContent='Nicht verfügbar';
-    const note=document.createElement('p'); note.className='small'; note.textContent='Spieleliste wird nach der Datenbank-Einrichtung verfügbar.';
+    const note=document.createElement('p'); note.className='small'; note.textContent='Spieleliste konnte nicht geladen werden.';
     list.append(note); return;
   }
-  count.textContent=(data?.length||0)+' Einträge';
-  if(!data?.length) {
+  if(!events?.length) {
+    count.textContent='0 Spiele';
     const empty=document.createElement('p'); empty.className='small'; empty.textContent='Du hast noch kein Spiel bei Rewardly geöffnet. Deine Aktivitäten erscheinen hier automatisch.';
     list.append(empty); return;
   }
-  for(const entry of data) {
-    const row=document.createElement('div'); row.className='game-history-row';
-    const icon=document.createElement('div'); icon.className='game-history-icon'; icon.textContent=gameIcons[entry.game_name]||'🎮';
+  const grouped=new Map();
+  for(const event of events) {
+    if(!grouped.has(event.game_name)) grouped.set(event.game_name,{name:event.game_name,opens:0,last:event.created_at,first:event.created_at});
+    const game=grouped.get(event.game_name);
+    game.opens++;
+    if(new Date(event.created_at)>new Date(game.last)) game.last=event.created_at;
+    if(new Date(event.created_at)<new Date(game.first)) game.first=event.created_at;
+  }
+  count.textContent=grouped.size+' Spiele';
+  for(const game of grouped.values()) {
+    const row=document.createElement('div'); row.className='game-history-row'; row.style.alignItems='flex-start';
+    const icon=document.createElement('div'); icon.className='game-history-icon'; icon.textContent=gameIcons[game.name]||'🎮';
     const meta=document.createElement('div'); meta.className='game-history-meta';
-    const name=document.createElement('b'); name.textContent=entry.game_name;
-    const date=document.createElement('small'); date.textContent=new Date(entry.created_at).toLocaleString('de-DE');
-    meta.append(name,date);
-    const state=document.createElement('span'); state.className='game-history-state'; state.textContent=entry.event_type==='opened'?'Geöffnet':entry.event_type==='started'?'Gestartet':'Aktivität';
+    const name=document.createElement('b'); name.textContent=game.name;
+    const last=document.createElement('small'); last.textContent='Zuletzt geöffnet: '+new Date(game.last).toLocaleString('de-DE');
+    const opens=document.createElement('small'); opens.textContent='Aufrufe: '+game.opens+' · Erstmals geöffnet: '+new Date(game.first).toLocaleDateString('de-DE');
+    const earned=(ledgerError?[]:(ledger||[])).filter(item=>item.entry_type==='reward' && String(item.description||'').toLowerCase().includes(game.name.toLowerCase())).reduce((sum,item)=>sum+Number(item.amount_cents||0),0);
+    const reward=document.createElement('small'); reward.textContent='Bestätigte Prämien: '+(earned/100).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+    const progress=document.createElement('small'); progress.textContent='Aufgabenfortschritt: Noch keine Partnerdaten verfügbar';
+    const time=document.createElement('small'); time.textContent='Spielzeit: Wird erst mit aktivem Partner-Tracking erfasst';
+    meta.append(name,last,opens,reward,progress,time);
+    const state=document.createElement('span'); state.className='game-history-state'; state.textContent='Geöffnet';
     row.append(icon,meta,state); list.append(row);
   }
 }
