@@ -187,3 +187,91 @@ create policy "Admins can update payout requests" on public.payout_requests
   for update to authenticated using ((select public.is_admin()))
   with check ((select public.is_admin()));
 
+
+
+-- Nutzer sperren/entsperren: zusätzliche Statusfelder.
+alter table public.profiles
+  add column if not exists is_banned boolean not null default false,
+  add column if not exists ban_reason text,
+  add column if not exists banned_at timestamptz;
+
+create or replace function public.is_active_user()
+returns boolean
+language sql stable security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid()) and p.is_banned = false
+  );
+$$;
+revoke all on function public.is_active_user() from public;
+grant execute on function public.is_active_user() to authenticated;
+
+-- Admin darf nur Sperrspalten ändern, nicht die Admin-Rolle.
+grant update (is_banned, ban_reason, banned_at) on public.profiles to authenticated;
+drop policy if exists "Admins can update user ban status" on public.profiles;
+create policy "Admins can update user ban status" on public.profiles
+  for update to authenticated
+  using ((select public.is_admin()))
+  with check ((select public.is_admin()));
+
+drop policy if exists "Users can read own tickets" on public.tickets;
+create policy "Users can read own tickets" on public.tickets
+  for select to authenticated using (auth.uid() = user_id and (select public.is_active_user()));
+drop policy if exists "Users can create own tickets" on public.tickets;
+create policy "Users can create own tickets" on public.tickets
+  for insert to authenticated with check (auth.uid() = user_id and (select public.is_active_user()));
+
+drop policy if exists "Users can read messages on own tickets" on public.ticket_messages;
+create policy "Users can read messages on own tickets" on public.ticket_messages
+  for select to authenticated using (
+    (select public.is_active_user()) and
+    exists (select 1 from public.tickets t where t.id = ticket_id and t.user_id = auth.uid())
+  );
+drop policy if exists "Users can reply to own tickets" on public.ticket_messages;
+create policy "Users can reply to own tickets" on public.ticket_messages
+  for insert to authenticated with check (
+    auth.uid() = user_id and (select public.is_active_user()) and
+    exists (select 1 from public.tickets t where t.id = ticket_id and t.user_id = auth.uid())
+  );
+
+drop policy if exists "Users can read own reward ledger" on public.reward_ledger;
+create policy "Users can read own reward ledger" on public.reward_ledger
+  for select to authenticated using (auth.uid() = user_id and (select public.is_active_user()));
+
+drop policy if exists "Users can read own payout requests" on public.payout_requests;
+create policy "Users can read own payout requests" on public.payout_requests
+  for select to authenticated using (auth.uid() = user_id and (select public.is_active_user()));
+drop policy if exists "Users can request own payout" on public.payout_requests;
+create policy "Users can request own payout" on public.payout_requests
+  for insert to authenticated with check (auth.uid() = user_id and status = 'pending' and (select public.is_active_user()));
+
+create or replace function public.validate_payout_request()
+returns trigger
+language plpgsql security definer
+set search_path = ''
+as $$
+declare
+  available_cents integer;
+begin
+  if auth.uid() is null or new.user_id <> auth.uid() then
+    raise exception 'Nicht berechtigt.';
+  end if;
+  if not public.is_active_user() then
+    raise exception 'Dieses Konto ist gesperrt. Auszahlungen sind blockiert.';
+  end if;
+  if new.amount_cents not in (500,1000,2000,3000,5000,10000,20000,50000) then
+    raise exception 'Bitte einen der erlaubten Auszahlungsbeträge auswählen.';
+  end if;
+  select coalesce(sum(amount_cents),0)::integer into available_cents
+  from public.reward_ledger where user_id = new.user_id;
+  select available_cents - coalesce(sum(amount_cents),0)::integer into available_cents
+  from public.payout_requests
+  where user_id = new.user_id and status in ('pending','processing');
+  if new.amount_cents > available_cents then
+    raise exception 'Dein bestätigtes verfügbares Guthaben reicht dafür nicht aus.';
+  end if;
+  return new;
+end;
+$$;
