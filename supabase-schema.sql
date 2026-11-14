@@ -299,6 +299,7 @@ create policy "Admins can read all game activity" on public.game_activity
 
 -- Rewardly-Erweiterungen: Login-Bonus-Punkte, Empfehlungen, Rangliste und Benachrichtigungen.
 alter table public.profiles add column if not exists referral_code text unique;
+alter table public.profiles alter column referral_code set default upper(substr(replace(gen_random_uuid()::text,'-',''),1,8));
 update public.profiles set referral_code = upper(substr(replace(id::text,'-',''),1,8)) where referral_code is null;
 
 create table if not exists public.reward_points (
