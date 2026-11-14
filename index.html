@@ -159,7 +159,7 @@ nav{gap:8px;align-items:center}nav a{padding:9px 12px;border-radius:10px;color:#
 <section class="section" id="reward-extras" style="display:none">
 <div class="eyebrow">Mehr Rewards</div><h2>Bonus, Freunde & Community</h2>
 <div class="features" style="margin-top:18px">
-<div class="feature"><b>🎁 Täglicher Bonus</b><p class="small">Täglich 10 Bonuspunkte, ab 7 Tagen Serie 25 Punkte. Punkte sind keine Euro und nicht auszahlbar.</p><button class="btn" id="daily-bonus-btn" type="button">Tagesbonus abholen</button><p class="small" id="daily-bonus-status"></p><p class="small" id="points-balance">Punkte: —</p></div>
+<div class="feature"><b>🎁 Täglicher Bonus</b><p class="small">Täglich 10 Bonuspunkte, ab 7 Tagen Serie 25 Punkte. 100 Punkte entsprechen 0,10 € Rewardly-Guthaben. Die Umwandlung ist nur möglich, wenn dafür bestätigte Partner-Einnahmen reserviert sind.</p><button class="btn" id="daily-bonus-btn" type="button">Tagesbonus abholen</button><p class="small" id="daily-bonus-status"></p><p class="small" id="points-balance">Punkte: —</p><p class="small" id="points-value">Bonuswert: —</p><button class="btn" id="redeem-points-btn" type="button" style="background:#29334e;color:white">Punkte in Guthaben umwandeln</button><p class="small" id="redeem-points-status" role="status"></p></div>
 <div class="feature"><b>👥 Freunde werben</b><p class="small">Teile deinen persönlichen Code. Prämien erst nach geprüfter Partnerqualifikation.</p><p class="small">Dein Code: <b id="my-referral-code">Wird geladen ...</b></p><button class="btn" id="copy-referral-btn" type="button">Code kopieren</button><form id="referral-form" style="display:grid;gap:8px;margin-top:12px"><input id="referral-input" maxlength="20" placeholder="Einladungscode eingeben" style="padding:10px;border-radius:9px;border:1px solid var(--line);background:#0e1324;color:white"><button class="btn" type="submit">Code einlösen</button></form><p class="small" id="referral-status"></p><p class="small" id="referral-count">Eingeladene Freunde: —</p></div>
 <div class="feature"><b>🏆 Erfolge & Abzeichen</b><p class="small">Schalte Abzeichen durch Rewardly-Aktivitäten frei.</p><div id="achievement-list" class="small">Bitte anmelden.</div></div>
 <div class="feature"><b>🔔 Benachrichtigungen</b><p class="small">Support-Antworten und Auszahlungsstatus.</p><div id="notification-list" class="small">Bitte anmelden.</div></div>
@@ -247,7 +247,7 @@ async function loadRewardExtras(userId) {
     supabase.from('notifications').select('id,title,message,is_read,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(10),
     supabase.from('game_activity').select('id').eq('user_id',userId)
   ]);
-  document.getElementById('points-balance').textContent='Punkte: '+(pointsResult.data?.points||0);
+  const currentPoints=pointsResult.data?.points||0;document.getElementById('points-balance').textContent='Punkte: '+currentPoints;document.getElementById('points-value').textContent='Bonuswert: '+((currentPoints/100)*0.10).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
   document.getElementById('referral-count').textContent='Eingeladene Freunde: '+(refResult.data?.length||0);
   const notifications=document.getElementById('notification-list');notifications.replaceChildren();
   if(notifResult.error) notifications.textContent='Benachrichtigungen nach Datenbank-Update verfügbar.';
@@ -277,6 +277,20 @@ document.getElementById('daily-bonus-btn').addEventListener('click',async()=>{
  const {data,error}=await supabase.rpc('claim_daily_bonus');
  status.textContent=error?error.message:'Du hast '+data[0].points_awarded+' Punkte erhalten! Serie: '+data[0].current_streak+' Tage.';
  await loadRewardExtras(user.id);
+});
+document.getElementById('redeem-points-btn').addEventListener('click',async()=>{
+ const status=document.getElementById('redeem-points-status');
+ const {data:{user}}=await supabase.auth.getUser();
+ if(!user){status.textContent='Bitte zuerst anmelden.';return;}
+ const {data:pointsRow,error:pointsError}=await supabase.from('reward_points').select('points').eq('user_id',user.id).maybeSingle();
+ if(pointsError){status.textContent='Punktestand konnte nicht geladen werden.';return;}
+ const points=Math.floor((pointsRow?.points||0)/100)*100;
+ if(points<100){status.textContent='Du brauchst mindestens 100 Punkte. Deine Punkte bleiben erhalten.';return;}
+ const {data,error}=await supabase.rpc('redeem_bonus_points',{p_points:points});
+ if(error){status.textContent=error.message;return;}
+ status.textContent=(data[0].credited_cents/100).toLocaleString('de-DE',{style:'currency',currency:'EUR'})+' wurden deinem bestätigten Guthaben gutgeschrieben.';
+ await loadRewardExtras(user.id);
+ await loadPayouts();
 });
 document.getElementById('copy-referral-btn').addEventListener('click',async()=>{
  const code=document.getElementById('my-referral-code').textContent;
