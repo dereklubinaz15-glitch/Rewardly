@@ -13,9 +13,32 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
 </style>
 </head>
 <body>
-<header class="wrap"><a class="brand" href="#">Reward<span>ly</span></a><nav><a href="#spiele">Spiele</a><a href="#vorteile">So funktioniert's</a><a href="#auszahlung">Auszahlungen</a></nav><a class="btn" href="#spiele">Spiele entdecken</a></header>
+<header class="wrap"><a class="brand" href="#">Reward<span>ly</span></a><nav><a href="#spiele">Spiele</a><a href="#vorteile">So funktioniert's</a><a href="#auszahlung">Auszahlungen</a></nav><a class="btn" href="#konto">Anmelden / Registrieren</a></header>
 <main class="wrap">
-<section class="hero"><div><div class="eyebrow">Deine Rewards-Welt</div><h1>Spielen.<br><span style="color:var(--green)">Sammeln.</span><br>Prämien erhalten.</h1><p>Entdecke spannende Spiele und Angebote. Erledige Aufgaben und sammle Punkte für mögliche Prämien.</p><a class="btn" href="#spiele">Jetzt entdecken&nbsp; →</a><p class="small">Kostenlos starten · Keine eigenen Käufe nötig, sofern ein Angebot nichts anderes angibt.</p></div>
+
+<section class="section" id="konto" style="padding-top:20px">
+  <div class="hero-card" style="max-width:620px;margin:auto">
+    <div class="eyebrow">Dein Konto</div>
+    <h2 style="margin:8px 0 6px">Bei Rewardly anmelden</h2>
+    <p class="small">Erstelle ein kostenloses Konto oder melde dich an. Bestätige gegebenenfalls deine E-Mail-Adresse.</p>
+    <div id="auth-status" class="notice" style="display:none;margin:14px 0"></div>
+    <form id="auth-form" style="display:grid;gap:12px">
+      <label class="small" for="auth-email">E-Mail-Adresse</label>
+      <input id="auth-email" type="email" required autocomplete="email" placeholder="name@beispiel.de" style="padding:13px;border-radius:10px;border:1px solid var(--line);background:#0e1324;color:var(--text)">
+      <label class="small" for="auth-password">Passwort (mindestens 6 Zeichen)</label>
+      <input id="auth-password" type="password" minlength="6" required autocomplete="current-password" placeholder="Dein Passwort" style="padding:13px;border-radius:10px;border:1px solid var(--line);background:#0e1324;color:var(--text)">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" type="submit" id="signup-btn">Kostenlos registrieren</button>
+        <button class="btn" type="button" id="login-btn" style="background:#29334e;color:white">Anmelden</button>
+      </div>
+    </form>
+    <div id="account-panel" style="display:none;margin-top:18px">
+      <b>Du bist angemeldet.</b>
+      <p class="small" id="account-email"></p>
+      <button class="btn" type="button" id="logout-btn" style="background:#29334e;color:white">Abmelden</button>
+    </div>
+  </div>
+</section>\n<section class="hero"><div><div class="eyebrow">Deine Rewards-Welt</div><h1>Spielen.<br><span style="color:var(--green)">Sammeln.</span><br>Prämien erhalten.</h1><p>Entdecke spannende Spiele und Angebote. Erledige Aufgaben und sammle Punkte für mögliche Prämien.</p><a class="btn" href="#spiele">Jetzt entdecken&nbsp; →</a><p class="small">Kostenlos starten · Keine eigenen Käufe nötig, sofern ein Angebot nichts anderes angibt.</p></div>
 <div class="hero-card"><div class="small">Dein Rewardly-Dashboard · Vorschau</div><div class="small" style="margin-top:18px">Beispiel-Guthaben</div><div class="balance">0,00 €</div><div class="small">Sammle bestätigte Prämien durch teilnehmende Partnerangebote.</div><div class="stats"><div class="stat"><b>14</b><span class="small">Spiele geplant</span></div><div class="stat"><b>5 €</b><span class="small">Auszahlungsgrenze</span></div><div class="stat"><b>80/20</b><span class="small">Nutzer / Betreiber</span></div></div></div></section>
 <div class="notice"><b>Wichtiger Hinweis:</b> Dies ist zunächst eine öffentliche Vorschau. Anmeldung, echtes Guthaben, Partner-Tracking und Auszahlungen sind noch nicht aktiviert. Es werden keine echten Prämien versprochen.</div>
 <section class="section" id="spiele"><div class="section-head"><div><div class="eyebrow">Entdecken</div><h2>Beliebte Spiele</h2></div><span class="small">Angebote folgen nach Partnerfreigabe</span></div><div class="games">
@@ -38,4 +61,56 @@ header{height:76px;display:flex;align-items:center;justify-content:space-between
 <section class="section" id="auszahlung"><div class="eyebrow">Prämien</div><h2>Geplante Auszahlungen</h2><p class="muted">Mindestbetrag: 5 €. Vorgesehen sind PayPal, Banküberweisung sowie Amazon-, Roblox- und Google-Play-Guthaben. Verfügbarkeit hängt von Partnern, Zahlungsdiensten und rechtlichen Anforderungen ab. Eine Auszahlung ist noch nicht aktiv.</p></section>
 </main>
 <footer class="wrap"><span>© 2026 Rewardly · Projektvorschau</span><span>Datenschutz und Impressum müssen vor dem öffentlichen Betrieb ergänzt werden.</span></footer>
-</body></html>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const supabase = createClient('https://ljccaseqanyoatwmljan.supabase.co', 'sb_publishable_vJRNEuabDQS5TWhcvWYrQQ_bpubxpsR');
+const form = document.getElementById('auth-form');
+const statusBox = document.getElementById('auth-status');
+const accountPanel = document.getElementById('account-panel');
+const emailInput = document.getElementById('auth-email');
+const passwordInput = document.getElementById('auth-password');
+function showStatus(message, isError=false) {
+  statusBox.textContent = message;
+  statusBox.style.display = 'block';
+  statusBox.style.borderColor = isError ? '#a94b55' : '#647b45';
+}
+async function refreshAccount() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    form.style.display = 'none';
+    accountPanel.style.display = 'block';
+    document.getElementById('account-email').textContent = user.email || '';
+    statusBox.style.display = 'none';
+  } else {
+    form.style.display = 'grid';
+    accountPanel.style.display = 'none';
+  }
+}
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const { data, error } = await supabase.auth.signUp({ email: emailInput.value.trim(), password: passwordInput.value });
+  if (error) return showStatus(error.message, true);
+  if (data.session) {
+    showStatus('Registrierung erfolgreich. Du bist jetzt angemeldet.');
+  } else {
+    showStatus('Registrierung gestartet. Bitte öffne den Bestätigungslink in deiner E-Mail.');
+  }
+  await refreshAccount();
+});
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const { error } = await supabase.auth.signInWithPassword({ email: emailInput.value.trim(), password: passwordInput.value });
+  if (error) return showStatus(error.message, true);
+  showStatus('Anmeldung erfolgreich.');
+  await refreshAccount();
+});
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  const { error } = await supabase.auth.signOut();
+  if (error) return showStatus(error.message, true);
+  showStatus('Du wurdest abgemeldet.');
+  await refreshAccount();
+});
+supabase.auth.onAuthStateChange(() => refreshAccount());
+refreshAccount();
+</script>
+\n</body></html>
