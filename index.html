@@ -181,6 +181,52 @@ async function loadTickets() {
     meta.className = 'small';
     meta.textContent = 'Status: ' + ({open:'Offen',in_progress:'In Bearbeitung',resolved:'Gelöst',closed:'Geschlossen'}[ticket.status] || ticket.status) + ' · ' + new Date(ticket.created_at).toLocaleString('de-DE');
     card.append(title, body, meta);
+    const { data: messages, error: messageError } = await supabase.from('ticket_messages')
+      .select('message, created_at').eq('ticket_id', ticket.id).order('created_at', { ascending: true });
+    const thread = document.createElement('div');
+    thread.style.cssText = 'display:grid;gap:8px;margin-top:12px';
+    if (messageError) {
+      const warning = document.createElement('p');
+      warning.className = 'small';
+      warning.textContent = 'Nachrichten konnten nicht geladen werden.';
+      thread.append(warning);
+    } else {
+      for (const item of (messages || [])) {
+        const msg = document.createElement('p');
+        msg.className = 'small';
+        msg.textContent = new Date(item.created_at).toLocaleString('de-DE') + ': ' + item.message;
+        thread.append(msg);
+      }
+    }
+    const replyForm = document.createElement('form');
+    replyForm.dataset.ticketId = String(ticket.id);
+    replyForm.style.cssText = 'display:grid;gap:8px;margin-top:10px';
+    const reply = document.createElement('textarea');
+    reply.required = true;
+    reply.maxLength = 5000;
+    reply.rows = 2;
+    reply.placeholder = 'Antwort zu diesem Ticket schreiben ...';
+    reply.style.cssText = 'padding:10px;border-radius:10px;border:1px solid var(--line);background:#0e1324;color:var(--text);font:inherit';
+    const send = document.createElement('button');
+    send.className = 'btn';
+    send.type = 'submit';
+    send.textContent = 'Antwort senden';
+    replyForm.append(reply, send);
+    replyForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return;
+      const { error: sendError } = await supabase.from('ticket_messages').insert({
+        ticket_id: ticket.id, user_id: currentUser.id, message: reply.value.trim()
+      });
+      if (sendError) {
+        ticketStatus.textContent = 'Antwort fehlgeschlagen: ' + sendError.message;
+      } else {
+        ticketStatus.textContent = 'Antwort gespeichert.';
+        await loadTickets();
+      }
+    });
+    card.append(thread, replyForm);
     ticketList.append(card);
   }
 }
