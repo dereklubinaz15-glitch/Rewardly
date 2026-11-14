@@ -275,3 +275,23 @@ begin
   return new;
 end;
 $$;
+
+
+-- Spiele-Aktivität im Nutzerkonto (keine automatische Prämiengutschrift).
+create table if not exists public.game_activity (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  game_name text not null check (char_length(game_name) between 2 and 100),
+  event_type text not null default 'opened' check (event_type in ('opened','started')),
+  created_at timestamptz not null default now()
+);
+alter table public.game_activity enable row level security;
+drop policy if exists "Users can read own game activity" on public.game_activity;
+create policy "Users can read own game activity" on public.game_activity
+  for select to authenticated using (auth.uid() = user_id and (select public.is_active_user()));
+drop policy if exists "Users can add own game activity" on public.game_activity;
+create policy "Users can add own game activity" on public.game_activity
+  for insert to authenticated with check (auth.uid() = user_id and (select public.is_active_user()));
+drop policy if exists "Admins can read all game activity" on public.game_activity;
+create policy "Admins can read all game activity" on public.game_activity
+  for select to authenticated using ((select public.is_admin()));
