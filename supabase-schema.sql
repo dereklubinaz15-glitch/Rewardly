@@ -444,3 +444,52 @@ begin
 exception when duplicate_object then
   null;
 end $$;
+
+
+-- Bonuspunkte können nur gegen tatsächlich vorfinanzierte Nutzer-Rewards eingelöst werden.
+-- 100 Punkte = 10 Cent. Der Pool enthält ausschließlich bereits bestätigte und
+-- für Nutzer-Rewards reservierte Beträge (der Betreiberanteil wurde vorher abgezogen).
+create table if not exists public.bonus_funding_pool (
+  id boolean primary key default true check (id = true),
+  available_user_cents integer not null default 0 check (available_user_cents >= 0),
+  updated_at timestamptz not null default now()
+);
+insert into public.bonus_funding_pool(id,available_user_cents)
+values(true,0) on conflict(id) do nothing;
+alter table public.bonus_funding_pool enable row level security;
+drop policy if exists "Admins manage bonus funding pool" on public.bonus_funding_pool;
+create policy "Admins manage bonus funding pool" on public.bonus_funding_pool
+  for update to authenticated using ((select public.is_admin()))
+  with check ((select public.is_admin()));
+grant update (available_user_cents,updated_at) on public.bonus_funding_pool to authenticated;
+
+create or replace function public.redeem_bonus_points(p_points integer)
+returns table(points_left integer, credited_cents integer, funding_left_cents integer)
+language plpgsql security definer set search_path=''
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_points integer;
+  v_credit integer;
+  v_fund integer;
+begin
+  if v_user is null or not public.is_active_user() then raise exception 'Bitte anmelden. Gesperrte Konten sind ausgeschlossen.'; end if;
+  if p_points is null or p_points < 100 or p_points % 100 <> 0 then
+    raise exception 'Mindestens 100 Punkte und nur Schritte von 100 Punkten sind möglich.';
+  end if;
+  v_credit := (p_points / 100) * 10;
+  select points into v_points from public.reward_points where user_id=v_user for update;
+  if coalesce(v_points,0) < p_points then raise exception 'Du hast nicht genügend Punkte.'; end if;
+  select available_user_cents into v_fund from public.bonus_funding_pool where id=true for update;
+  if coalesce(v_fund,0) < v_credit then
+    raise exception 'Noch nicht genug bestätigte Partner-Einnahmen für die Umwandlung. Deine Punkte bleiben erhalten.';
+  end if;
+  update public.reward_points set points=points-p_points,updated_at=now() where user_id=v_user returning points into v_points;
+  update public.bonus_funding_pool set available_user_cents=available_user_cents-v_credit,updated_at=now()
+    where id=true returning available_user_cents into v_fund;
+  insert into public.reward_ledger(user_id,amount_cents,entry_type,description)
+    values(v_user,v_credit,'reward','Umwandlung von Bonuspunkten ('||p_points||' Punkte)');
+  return query select v_points,v_credit,v_fund;
+end $$;
+revoke all on function public.redeem_bonus_points(integer) from public;
+grant execute on function public.redeem_bonus_points(integer) to authenticated;
