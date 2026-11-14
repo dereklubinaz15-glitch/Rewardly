@@ -192,6 +192,17 @@ nav{gap:8px;align-items:center}nav a{padding:9px 12px;border-radius:10px;color:#
     <div id="admin-game-activity" style="display:grid;gap:9px;margin-top:12px">Wird geladen ...</div>
   </div>
 <div class="feature" style="margin-top:18px"><b style="font-size:20px">📈 Admin-Statistiken</b><p class="small">Konten, bestätigte Nutzer-Rewards und offene Auszahlungen. Der Betreiberanteil wird erst aus bestätigten Partnerumsätzen berechnet.</p><div class="stats"><div class="stat"><b id="stats-users">—</b><span class="small">Nutzer</span></div><div class="stat"><b id="stats-rewards">—</b><span class="small">Nutzer-Rewards</span></div><div class="stat"><b id="stats-payouts">—</b><span class="small">Offene Auszahlungen</span></div></div><p class="small" id="stats-operator-share">Betreiberanteil (20 %): Noch keine bestätigten Partnerumsätze erfasst.</p></div>
+  <div class="feature" style="margin-top:18px">
+    <b style="font-size:20px">💶 Bonus-Guthaben verwalten</b>
+    <p class="small">Hier siehst du den bereits reservierten Betrag für Bonus-Umwandlungen. Er darf nur aus tatsächlich bestätigten Partner-Einnahmen stammen; eine manuelle Gutschrift ohne Zahlungsnachweis ist nicht möglich.</p>
+    <div class="stats" style="margin-top:12px">
+      <div class="stat"><b id="admin-bonus-funding">Wird geladen ...</b><span class="small">Für Nutzer reserviert</span></div>
+      <div class="stat"><b>80 %</b><span class="small">Nutzeranteil</span></div>
+      <div class="stat"><b>20 %</b><span class="small">Betreiberanteil</span></div>
+    </div>
+    <p class="small" id="admin-bonus-funding-note">Die Anzeige ist informativ. Der Bonus-Topf wird erst durch eine sichere, bestätigte Partner-Abrechnung befüllt.</p>
+    <button class="btn" id="admin-bonus-refresh" type="button" style="background:#29334e;color:white">Betrag aktualisieren</button>
+  </div>
   <div class="features" style="margin-top:18px">
     <div class="feature"><b>Support-Tickets & Live-Support</b><div id="admin-tickets" class="small">Wird geladen ...</div></div>
     <div class="feature"><b>Auszahlungen</b><div id="admin-payouts" class="small">Wird geladen ...</div></div>
@@ -751,6 +762,17 @@ async function loadAdmin() {
   const pendingTotal=(payoutStats||[]).filter(x=>['pending','processing'].includes(x.status)).reduce((n,x)=>n+Number(x.amount_cents||0),0);
   document.getElementById('stats-payouts').textContent=euro(pendingTotal);
   document.getElementById('stats-operator-share').textContent='Betreiberanteil (20 %): Noch keine echten Partnerumsätze erfasst. Nutzer-Rewards allein sind kein Nachweis für Einnahmen.';
+  const bonusFundingEl=document.getElementById('admin-bonus-funding');
+  const refreshBonusFunding=async()=>{
+    bonusFundingEl.textContent='Wird geladen ...';
+    const {data:funding,error:fundingError}=await supabase.rpc('get_bonus_funding_status');
+    bonusFundingEl.textContent=fundingError?'Nicht verfügbar':euro(funding?.[0]?.available_cents||0);
+    document.getElementById('admin-bonus-funding-note').textContent=fundingError
+      ? 'Bonus-Topf konnte nicht geladen werden: '+fundingError.message
+      : 'Aktuell sind '+euro(funding?.[0]?.available_cents||0)+' für Nutzer reserviert. Neue Beträge nur nach bestätigter Partner-Abrechnung einplanen.';
+  };
+  document.getElementById('admin-bonus-refresh').onclick=refreshBonusFunding;
+  await refreshBonusFunding();
   await loadAdminGameActivity();
   adminPayouts.replaceChildren();
   if (payoutsResult.error) adminPayouts.textContent='Fehler: '+payoutsResult.error.message;
