@@ -136,3 +136,54 @@ drop trigger if exists validate_payout_request_before_insert on public.payout_re
 create trigger validate_payout_request_before_insert
 before insert on public.payout_requests
 for each row execute function public.validate_payout_request();
+
+-- Admin-Rechte: Nur Profile mit role='admin' dürfen Verwaltungsdaten sehen/bearbeiten.
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid()) and p.role = 'admin'
+  );
+$$;
+
+revoke all on function public.is_admin() from public;
+grant execute on function public.is_admin() to authenticated;
+
+drop policy if exists "Admins can read all profiles" on public.profiles;
+create policy "Admins can read all profiles" on public.profiles
+  for select to authenticated using ((select public.is_admin()));
+
+drop policy if exists "Admins can read all tickets" on public.tickets;
+create policy "Admins can read all tickets" on public.tickets
+  for select to authenticated using ((select public.is_admin()));
+drop policy if exists "Admins can update tickets" on public.tickets;
+create policy "Admins can update tickets" on public.tickets
+  for update to authenticated using ((select public.is_admin()))
+  with check ((select public.is_admin()));
+
+drop policy if exists "Admins can read all ticket messages" on public.ticket_messages;
+create policy "Admins can read all ticket messages" on public.ticket_messages
+  for select to authenticated using ((select public.is_admin()));
+drop policy if exists "Admins can reply to tickets" on public.ticket_messages;
+create policy "Admins can reply to tickets" on public.ticket_messages
+  for insert to authenticated with check (
+    user_id = (select auth.uid()) and (select public.is_admin())
+  );
+
+drop policy if exists "Admins can read all reward ledger" on public.reward_ledger;
+create policy "Admins can read all reward ledger" on public.reward_ledger
+  for select to authenticated using ((select public.is_admin()));
+
+drop policy if exists "Admins can read all payout requests" on public.payout_requests;
+create policy "Admins can read all payout requests" on public.payout_requests
+  for select to authenticated using ((select public.is_admin()));
+drop policy if exists "Admins can update payout requests" on public.payout_requests;
+create policy "Admins can update payout requests" on public.payout_requests
+  for update to authenticated using ((select public.is_admin()))
+  with check ((select public.is_admin()));
+
