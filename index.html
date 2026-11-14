@@ -237,6 +237,60 @@ function showStatus(message, isError=false) {
   statusBox.style.borderColor = isError ? '#a94b55' : '#647b45';
 }
 const gameIcons = {'Domino Dreams':'🀄','Disney Solitaire':'🏰','Monopoly GO!':'🏙️','Coin Master':'🪙','Royal Match':'👑','Gardenscapes':'🌻','Homescapes':'🏡','Fishdom':'🐠','Township':'🚜','Travel Town':'🧩','Match Masters':'🎯','June’s Journey':'🔎','Bingo Blitz':'🎱','Klondike Adventures':'❄️'};
+
+async function loadRewardExtras(userId) {
+  const {data:profile}=await supabase.from('profiles').select('referral_code').eq('id',userId).maybeSingle();
+  document.getElementById('my-referral-code').textContent=profile?.referral_code||'Noch nicht verfügbar';
+  const [pointsResult,refResult,notifResult,gameResult]=await Promise.all([
+    supabase.from('reward_points').select('points').eq('user_id',userId).maybeSingle(),
+    supabase.from('referrals').select('id,status').eq('referrer_id',userId),
+    supabase.from('notifications').select('id,title,message,is_read,created_at').eq('user_id',userId).order('created_at',{ascending:false}).limit(10),
+    supabase.from('game_activity').select('id').eq('user_id',userId)
+  ]);
+  document.getElementById('points-balance').textContent='Punkte: '+(pointsResult.data?.points||0);
+  document.getElementById('referral-count').textContent='Eingeladene Freunde: '+(refResult.data?.length||0);
+  const notifications=document.getElementById('notification-list');notifications.replaceChildren();
+  if(notifResult.error) notifications.textContent='Benachrichtigungen nach Datenbank-Update verfügbar.';
+  else if(!notifResult.data?.length) notifications.textContent='Noch keine Benachrichtigungen.';
+  for(const n of notifResult.data||[]){
+    const item=document.createElement('div');item.style.cssText='padding:7px 0;border-bottom:1px solid #ffffff12';
+    const title=document.createElement('b');title.textContent=(n.is_read?'':'● ')+n.title;
+    const msg=document.createElement('p');msg.className='small';msg.textContent=n.message+' · '+new Date(n.created_at).toLocaleDateString('de-DE');
+    item.append(title,msg);
+    if(!n.is_read)item.addEventListener('click',async()=>{await supabase.from('notifications').update({is_read:true}).eq('id',n.id);await loadRewardExtras(userId);});
+    notifications.append(item);
+  }
+  const count=gameResult.data?.length||0, achievements=document.getElementById('achievement-list');achievements.replaceChildren();
+  [['🌱','Erster Schritt',count>=1],['🎮','5 Spiele geöffnet',count>=5],['🚀','10 Spiele geöffnet',count>=10]].forEach(([icon,label,ok])=>{const p=document.createElement('p');p.textContent=(ok?'✅ ':'🔒 ')+icon+' '+label;achievements.append(p);});
+}
+async function loadLeaderboard(){
+ const target=document.getElementById('leaderboard-list');
+ const {data,error}=await supabase.rpc('public_reward_leaderboard');
+ target.replaceChildren();
+ if(error){target.textContent='Nach dem SQL-Update verfügbar.';return;}
+ if(!data?.length){target.textContent='Noch keine bestätigten Rewards.';return;}
+ data.forEach((row,i)=>{const p=document.createElement('p');p.textContent=(i+1)+'. '+row.username+' — '+euro(row.total_cents);target.append(p);});
+}
+document.getElementById('daily-bonus-btn').addEventListener('click',async()=>{
+ const status=document.getElementById('daily-bonus-status');const {data:{user}}=await supabase.auth.getUser();
+ if(!user){status.textContent='Bitte zuerst anmelden.';return;}
+ const {data,error}=await supabase.rpc('claim_daily_bonus');
+ status.textContent=error?error.message:'Du hast '+data[0].points_awarded+' Punkte erhalten! Serie: '+data[0].current_streak+' Tage.';
+ await loadRewardExtras(user.id);
+});
+document.getElementById('copy-referral-btn').addEventListener('click',async()=>{
+ const code=document.getElementById('my-referral-code').textContent;
+ if(!code||code==='Noch nicht verfügbar')return;
+ try{await navigator.clipboard.writeText(code);document.getElementById('referral-status').textContent='Einladungscode kopiert.';}
+ catch{document.getElementById('referral-status').textContent='Code zum Kopieren: '+code;}
+});
+document.getElementById('referral-form').addEventListener('submit',async event=>{
+ event.preventDefault();const status=document.getElementById('referral-status');const code=document.getElementById('referral-input').value.trim();
+ const {data:{user}}=await supabase.auth.getUser();if(!user){status.textContent='Bitte anmelden.';return;}
+ const {error}=await supabase.rpc('apply_referral_code',{p_code:code});
+ status.textContent=error?error.message:'Einladungscode gespeichert. Eine Prämie gibt es erst nach Prüfung einer qualifizierten Teilnahme.';
+});
+
 async function loadGameHistory(userId) {
   const list=document.getElementById('game-history-list');
   const count=document.getElementById('game-history-count');
@@ -331,6 +385,7 @@ async function refreshAccount() {
     }
     statusBox.style.display = 'none';
     await loadGameHistory(user.id);
+    await loadRewardExtras(user.id);
     const balanceEl = document.getElementById('account-balance');
     const errorEl = document.getElementById('balance-error');
     const { data: entries, error } = await supabase
@@ -669,6 +724,17 @@ async function loadAdmin() {
     const send=makeAdminButton('Antwort senden',async()=>{if(!reply.value.trim())return adminMessage('Bitte eine Antwort eingeben.',true);const {data:{user:adminUser}}=await supabase.auth.getUser();const {error}=await supabase.from('ticket_messages').insert({ticket_id:t.id,user_id:adminUser.id,message:reply.value.trim()});if(error)adminMessage('Antwort fehlgeschlagen: '+error.message,true);else{reply.value='';adminMessage('Antwort für Ticket #'+t.id+' gespeichert.');}});
     item.append(title,body,status,save,reply,send);adminTickets.append(item);
   }
+
+  const [{data:ledgerStats},{data:payoutStats}] = await Promise.all([
+    supabase.from('reward_ledger').select('amount_cents'),
+    supabase.from('payout_requests').select('amount_cents,status')
+  ]);
+  document.getElementById('stats-users').textContent=allUsers.length;
+  const rewardTotal=(ledgerStats||[]).reduce((n,x)=>n+Number(x.amount_cents||0),0);
+  document.getElementById('stats-rewards').textContent=euro(rewardTotal);
+  const pendingTotal=(payoutStats||[]).filter(x=>['pending','processing'].includes(x.status)).reduce((n,x)=>n+Number(x.amount_cents||0),0);
+  document.getElementById('stats-payouts').textContent=euro(pendingTotal);
+  document.getElementById('stats-operator-share').textContent='Betreiberanteil (20 %): Noch keine echten Partnerumsätze erfasst. Nutzer-Rewards allein sind kein Nachweis für Einnahmen.';
   await loadAdminGameActivity();
   adminPayouts.replaceChildren();
   if (payoutsResult.error) adminPayouts.textContent='Fehler: '+payoutsResult.error.message;
@@ -687,6 +753,7 @@ supabase.auth.onAuthStateChange(() => { refreshAccount(); loadTickets(); loadPay
 refreshAccount();
 loadPayouts();
 loadAdmin();
+loadLeaderboard();
 </script>
 
 </body></html>
