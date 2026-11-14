@@ -164,7 +164,14 @@ nav{gap:8px;align-items:center}nav a{padding:9px 12px;border-radius:10px;color:#
 <div class="feature"><b>🏆 Erfolge & Abzeichen</b><p class="small">Schalte Abzeichen durch Rewardly-Aktivitäten frei.</p><div id="achievement-list" class="small">Bitte anmelden.</div></div>
 <div class="feature"><b>🔔 Benachrichtigungen</b><p class="small">Support-Antworten und Auszahlungsstatus.</p><div id="notification-list" class="small">Bitte anmelden.</div></div>
 <div class="feature"><b>📊 Rangliste</b><p class="small">Top 10 nach bestätigten Rewards. Keine E-Mail-Adressen werden angezeigt.</p><div id="leaderboard-list" class="small">Wird geladen ...</div></div>
-<div class="feature"><b>🎮 Angebotswand</b><p class="small">Spiele und Aufgaben an einem Ort. Partnerangebote sind noch nicht freigeschaltet.</p><div id="offerwall-list" class="small">14 Spiele geplant · Partnerfreigabe ausstehend.</div></div>
+<div class="feature">
+  <b>🎮 Angebotswand</b>
+  <p class="small">Verdiene Rewardly Points mit Spielen und Aufgaben.</p>
+  <button id="open-offerwall" class="btn" type="button">
+    Angebote öffnen
+  </button>
+  <div id="offerwall-list" class="small">Bitte anmelden, um Angebote zu öffnen.</div>
+</div>
 </div></section>
 <section class="section" id="admin" style="display:none">
   <div class="eyebrow">Nur für Administratoren</div><h2>Rewardly-Verwaltung</h2>
@@ -250,7 +257,20 @@ const supabase = createClient('https://ljccaseqanyoatwmljan.supabase.co', 'sb_pu
 const form = document.getElementById('auth-form');
 const statusBox = document.getElementById('auth-status');
 const accountPanel = document.getElementById('account-panel');
-const emailInput = document.getElementById('auth-email');
+const emailInput  = document.getElementById('auth-email');
+  document.getElementById('open-offerwall')?.addEventListener('click', async () => {
+  const tab = window.open('about:blank', '_blank');
+
+  const { data, error } = await supabase.functions.invoke('offerwallme-link');
+
+  if (error || !data?.url) {
+    if (tab) tab.close();
+    alert('Angebote konnten nicht geöffnet werden. Bitte anmelden.');
+    return;
+  }
+
+  if (tab) tab.location.href = data.url;
+});
 const passwordInput = document.getElementById('auth-password');
 function showStatus(message, isError=false) {
   statusBox.textContent = message;
